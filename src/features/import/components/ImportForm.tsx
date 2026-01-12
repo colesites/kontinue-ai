@@ -1,3 +1,4 @@
+++ Begin Changes
 "use client";
 
 import { useState, useEffect } from "react";
@@ -246,6 +247,8 @@ export function ImportForm() {
       toast.error("Paste the transcript from your AI chat before importing.");
       return;
     }
+
+    if (isManualImporting) return;
 
     const manualProvider = provider ?? "unknown";
 
