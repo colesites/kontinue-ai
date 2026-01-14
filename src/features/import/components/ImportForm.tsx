@@ -55,9 +55,9 @@ const ASSISTANT_LABELS = [
 ];
 
 const SHARE_ROLE_REGEX =
-  /^(you|chatgpt|claude|gemini|assistant|ai)\s+(said|says|wrote|writes|replied|replies|reply|response|responded)\s*:?\s*(.*)$/i;
+  /^(you|chatgpt|claude|gemini|assistant|ai)\s+(said|says|wrote|writes|replied|reply|response)\s*:?\s*(.*)$/i;
 const SHARE_ROLE_HEADER_REGEX =
-  /^(you|chatgpt|claude|gemini|assistant|ai)\s+(said|says|wrote|writes|replied|replies|reply|response|responded)\s*$/i;
+  /^(you|chatgpt|claude|gemini|assistant|ai)\s+(said|says|wrote|writes|replied|reply|response)\s*$/i;
 
 const NOISE_PATTERNS = [
   /no file chosen/i,
@@ -94,7 +94,6 @@ export function ImportForm() {
   const [isMobile, setIsMobile] = useState(false);
   const [manualTranscript, setManualTranscript] = useState("");
   const [manualTitle, setManualTitle] = useState("");
-  const [isManualImporting, setIsManualImporting] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -247,11 +246,8 @@ export function ImportForm() {
       return;
     }
 
-    if (isManualImporting) return;
-
     const manualProvider = provider ?? "unknown";
 
-    setIsManualImporting(true);
     try {
       const transcript = buildManualTranscript({
         raw: manualTranscript,
@@ -268,16 +264,11 @@ export function ImportForm() {
           ? err.message
           : "We couldn’t parse this transcript. Please ensure it includes clear User:/Assistant: labels.";
       toast.error(message);
-    } finally {
-      setIsManualImporting(false);
     }
   };
 
   const isProcessing =
-    status === "scanning" ||
-    status === "importing" ||
-    isSubmitting ||
-    isManualImporting;
+    status === "scanning" || status === "importing" || isSubmitting;
   const helperText = isMobile
     ? "Mobile import: copy the full conversation from your AI app and paste it below. Capture Mode isn't available on phones."
     : "Desktop Capture Mode: paste a shared link and we'll capture the page automatically.";
@@ -569,7 +560,8 @@ function buildManualTranscript({
   provider: Provider;
   title?: string;
 }): NormalizedTranscript {
-  const sanitizedLines = raw
+  const normalizedRaw = normalizeShareHeaders(raw);
+  const sanitizedLines = normalizedRaw
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
     .split("\n")
@@ -598,16 +590,22 @@ function buildManualTranscript({
     buffer = [];
   };
 
-  for (const rawLine of sanitizedLines) {
-    const line = rawLine;
+  for (const line of sanitizedLines) {
     const trimmed = line.trim();
+    if (!trimmed) {
+      buffer.push("");
+      continue;
+    }
 
-    const inlineLabel = parseInlineLabel(trimmed);
-    if (inlineLabel) {
+    const match = trimmed.match(/^([^:：\-]+)\s*[:：\-]\s*(.*)$/i);
+    const maybeRole = match ? mapLabelToRole(match[1]) : null;
+
+    if (match && maybeRole) {
       flush();
-      currentRole = inlineLabel.role;
-      if (inlineLabel.content) {
-        buffer.push(inlineLabel.content);
+      currentRole = maybeRole;
+      const remainder = match[2].trim();
+      if (remainder) {
+        buffer.push(remainder);
       }
       continue;
     }
@@ -615,17 +613,18 @@ function buildManualTranscript({
     const shareMatch = trimmed.match(SHARE_ROLE_REGEX);
     if (shareMatch) {
       flush();
-      currentRole = mapLabelToRole(shareMatch[1]) ?? currentRole;
-      if (shareMatch[3]) {
-        buffer.push(shareMatch[3]);
+      currentRole = mapLabelToRole(shareMatch[1]) || currentRole;
+      const remainder = shareMatch[3]?.trim();
+      if (remainder) {
+        buffer.push(remainder);
       }
       continue;
     }
 
-    const standaloneRole = detectStandaloneRoleCue(trimmed);
-    if (standaloneRole) {
+    const shareHeaderMatch = trimmed.match(SHARE_ROLE_HEADER_REGEX);
+    if (shareHeaderMatch) {
       flush();
-      currentRole = standaloneRole;
+      currentRole = mapLabelToRole(shareHeaderMatch[1]) || currentRole;
       continue;
     }
 
@@ -635,25 +634,9 @@ function buildManualTranscript({
   flush();
 
   if (!messages.length) {
-    const fallbackChunks = sanitizedLines
-      .join("\n")
-      .split(/\n{2,}/)
-      .map((chunk) => chunk.trim())
-      .filter(Boolean);
-
-    if (!fallbackChunks.length) {
-      throw new Error(
-        'No messages detected. Please format lines like "User: ..." and "Assistant: ...".'
-      );
-    }
-
-    fallbackChunks.forEach((chunk, index) => {
-      messages.push({
-        role: index % 2 === 0 ? "user" : "assistant",
-        content: chunk,
-        order: index,
-      });
-    });
+    throw new Error(
+      'No messages detected. Please format lines like "User: ..." and "Assistant: ...".'
+    );
   }
 
   const generatedTitle = title?.trim() || deriveTitleFromMessages(messages);
@@ -667,83 +650,17 @@ function buildManualTranscript({
   };
 }
 
-function stripFormatting(input: string): string {
-  return input
-    .trim()
-    .replace(/^[*_`~]+/, "")
-    .replace(/[*_`~]+$/, "")
-    .trim();
-}
-
-function normalizeLabelInput(input: string): string {
-  return stripFormatting(input)
-    .toLowerCase()
-    .replace(/[:：\-]+$/, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function parseInlineLabel(
-  line: string
-): { role: NormalizedMessage["role"]; content: string } | null {
-  const match = line.match(/^([^:：\-]+)\s*[:：\-]\s*(.*)$/);
-  if (!match) return null;
-  const role = mapLabelToRole(match[1]);
-  if (!role) return null;
-  return { role, content: match[2] };
-}
-
-function detectStandaloneRoleCue(
-  line: string
-): NormalizedMessage["role"] | null {
-  const normalized = normalizeLabelInput(line);
-  if (!normalized) return null;
-
-  if (SHARE_ROLE_HEADER_REGEX.test(normalized)) {
-    const [, speaker] =
-      normalized.match(/^(you|chatgpt|claude|gemini|assistant|ai)/i) || [];
-    if (speaker) {
-      return mapLabelToRole(speaker);
-    }
-  }
-
-  if (
-    !/^(?:[a-z]+\s?)+(?:\s+(?:said|says|wrote|writes|replied|reply|response))?$/i.test(
-      normalized
-    )
-  ) {
-    return null;
-  }
-
-  return mapLabelToRole(normalized);
-}
-
 function mapLabelToRole(label: string): NormalizedMessage["role"] | null {
-  let normalized = normalizeLabelInput(label);
-  normalized = normalized
-    .replace(/\b(said|says|wrote|writes|replied|reply|response)\b/g, "")
-    .trim();
+  const normalized = label
+    .trim()
+    .toLowerCase()
+    .replace(/[:：\-]+$/, "");
   if (!normalized) return null;
-
-  if (normalized.startsWith("system")) return "system";
-  if (
-    USER_LABELS.some(
-      (token) =>
-        normalized === token ||
-        normalized.startsWith(`${token} `) ||
-        normalized.startsWith(`${token}:`)
-    )
-  ) {
+  if (normalized === "system") return "system";
+  if (USER_LABELS.some((token) => normalized === token)) {
     return "user";
   }
-  if (
-    ASSISTANT_LABELS.some(
-      (token) =>
-        normalized === token ||
-        normalized.startsWith(`${token} `) ||
-        normalized.startsWith(`${token}:`)
-    )
-  ) {
+  if (ASSISTANT_LABELS.some((token) => normalized === token)) {
     return "assistant";
   }
   return null;
@@ -761,4 +678,20 @@ function deriveTitleFromMessages(messages: NormalizedMessage[]): string {
   if (!singleLine) return "Manual Transcript";
 
   return singleLine.length > 60 ? `${singleLine.slice(0, 57)}...` : singleLine;
+}
+
+function normalizeShareHeaders(raw: string): string {
+  return raw.replace(
+    /(^|\n)\s*(You|ChatGPT|Claude|Gemini|Assistant|AI)\s+(said|says|wrote|writes|replied|reply|response)\s*:?\s*(?=\n|$)/gi,
+    (_, leading, speaker) => {
+      const role = mapLabelToRole(speaker) ?? "user";
+      const label =
+        role === "assistant"
+          ? "Assistant"
+          : role === "system"
+            ? "System"
+            : "User";
+      return `${leading}${label}:`;
+    }
+  );
 }
