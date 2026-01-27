@@ -9,6 +9,7 @@
  */
 
 import type * as chats from "../chats.js";
+import type * as firecrawl from "../firecrawl.js";
 import type * as messages from "../messages.js";
 import type * as users from "../users.js";
 
@@ -20,6 +21,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   chats: typeof chats;
+  firecrawl: typeof firecrawl;
   messages: typeof messages;
   users: typeof users;
 }>;

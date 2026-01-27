@@ -160,10 +160,13 @@ export function Sidebar() {
 function getProviderColor(provider: Provider): string {
   const colors: Record<Provider, string> = {
     chatgpt: "#10a37f",
-    gemini: "#4285f4",
     claude: "#cc785c",
-    perplexity: "#20b8cd",
+    gemini: "#4285f4",
     grok: "#ffffff",
+    t3chat: "#f8e6f4",
+    perplexity: "#20b8cd",
+    mistral: "#ffffff",
+    deepseek: "#ffffff",
     unknown: "#6b7280",
   };
   return colors[provider];

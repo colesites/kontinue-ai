@@ -1,11 +1,10 @@
 "use client";
-import { ArrowRight, Copy, Sparkles } from "lucide-react";
+import { ArrowRight, Copy, Sparkles, Link2 } from "lucide-react";
 import {
   HowToModal,
   HowToButton,
 } from "@/features/import/components/HowToModal";
 import { ImportForm } from "@/features/import/components/ImportForm";
-import { ImportPreviewBox } from "@/features/import/components/ImportPreviewBox";
 
 export default function ImportPage() {
   return (
@@ -17,16 +16,18 @@ export default function ImportPage() {
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-start justify-between gap-6 mb-10">
             <div>
-              <div className="inline-flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-linear-to-br from-primary to-accent flex items-center justify-center shadow-sm shadow-primary/15">
-                  <Sparkles className="text-primary-foreground" size={18} />
-                </div>
+              <div className="inline-flex items-center gap-2">
+                <img
+                  src="/continue-ai-logo.png"
+                  alt="Continue AI"
+                  className="w-10 h-10 rounded-xl"
+                />
                 <h1 className="text-2xl sm:text-3xl font-semibold text-foreground">
                   Continue AI
                 </h1>
               </div>
               <p className="text-muted-foreground mt-2 max-w-xl">
-                Continue any conversation by capturing from a share link.
+                Continue any conversation by pasting a shared link.
               </p>
             </div>
             <div className="hidden sm:block pt-2">
@@ -45,38 +46,21 @@ export default function ImportPage() {
                 <p className="text-sm font-medium text-card-foreground">
                   How it works
                 </p>
-                <div className="mt-4 space-y-4 hidden sm:block">
+                <div className="mt-4 space-y-4">
                   <Step
                     icon={<Copy size={16} />}
-                    title="Paste share link (Capture Mode)"
-                    description="Capture the share page and OCR it into a transcript."
+                    title="Get a shared link"
+                    description="Open your chat in ChatGPT, Claude, or Gemini and create a shared link."
                   />
                   <Step
-                    icon={<ArrowRight size={16} />}
-                    title="Scroll while recording"
-                    description="Start capture, select the share tab, scroll, then OCR & import."
+                    icon={<Link2 size={16} />}
+                    title="Paste link below"
+                    description="Paste the URL into the box. We will automatically scrape and import the history."
                   />
                   <Step
                     icon={<Sparkles size={16} />}
                     title="Continue"
-                    description="Choose T3 Chat / ChatGPT / Claude / Gemini and keep going."
-                  />
-                </div>
-                <div className="mt-4 space-y-4 sm:hidden">
-                  <Step
-                    icon={<Copy size={16} />}
-                    title="Copy your conversation"
-                    description="Open your AI app and copy the entire chat (User + Assistant turns)."
-                  />
-                  <Step
-                    icon={<ArrowRight size={16} />}
-                    title="Paste transcript below"
-                    description="Pick the provider, add an optional title, and paste every message into the transcript box."
-                  />
-                  <Step
-                    icon={<Sparkles size={16} />}
-                    title="Continue in Continue AI"
-                    description="Import the transcript to keep chatting with your preferred model."
+                    description="Pick up right where you left off with any model."
                   />
                 </div>
 
@@ -85,10 +69,9 @@ export default function ImportPage() {
                     Works with
                   </p>
                   <div className="mt-3 flex items-center gap-3 flex-wrap">
-                    <ProviderPill name="T3 Chat" color="#48132b" />
-                    <ProviderPill name="ChatGPT" color="#ffffff" />
+                    <ProviderPill name="ChatGPT" color="#10a37f" />
+                    <ProviderPill name="Claude" color="#d97757" />
                     <ProviderPill name="Gemini" color="#4285f4" />
-                    <ProviderPill name="Claude" color="#cc785c" />
                     <ProviderPill name="Perplexity" color="#20b8cd" />
                     <ProviderPill name="Grok" color="#ffffff" />
                   </div>
@@ -102,20 +85,13 @@ export default function ImportPage() {
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-sm font-medium text-card-foreground">
-                      Import
+                      Import Chat
                     </p>
-                    <p className="text-sm text-muted-foreground mt-1 hidden sm:block">
-                      Paste a shared link to auto-import with Capture Mode.
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1 sm:hidden">
-                      On mobile, copy your AI conversation and paste it below to
-                      import.
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Paste a shared link to automatically import your
+                      conversation history.
                     </p>
                   </div>
-                </div>
-
-                <div className="mt-5">
-                  <ImportPreviewBox />
                 </div>
 
                 <div className="mt-5">

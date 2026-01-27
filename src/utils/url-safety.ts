@@ -41,50 +41,75 @@ export function isBlockedHost(hostname: string): boolean {
   return false;
 }
 
-export const SharedLinkSchema = z.string().url().refine((url) => {
+export const SharedLinkSchema = z.url().refine((url) => {
   try {
     const parsed = new URL(url);
-    
+
     // Must be HTTPS
     if (parsed.protocol !== "https:") {
       return false;
     }
-    
+
     // Check for blocked hosts
     if (isBlockedHost(parsed.hostname)) {
       return false;
     }
-    
+
     return true;
   } catch {
     return false;
   }
 }, "Invalid or blocked URL");
 
-export type Provider = "chatgpt" | "gemini" | "claude" | "perplexity" | "grok" | "unknown";
+export type Provider =
+  | "chatgpt"
+  | "claude"
+  | "gemini"
+  | "grok"
+  | "t3chat"
+  | "mistral"
+  | "perplexity"
+  | "deepseek"
+  | "unknown";
 
 export function detectProvider(url: string): Provider {
   try {
     const parsed = new URL(url);
     const hostname = parsed.hostname.toLowerCase();
-    
-    if (hostname.includes("chat.openai.com") || hostname.includes("chatgpt.com")) {
-      return "chatgpt";
+
+    const path = parsed.pathname.toLowerCase();
+
+    switch (true) {
+      case hostname.includes("chat.openai.com") ||
+        hostname.includes("chatgpt.com"):
+        return "chatgpt";
+
+      case hostname.includes("claude.ai") || hostname.includes("anthropic.com"):
+        return "claude";
+
+      case hostname.includes("gemini.google.com") ||
+        hostname.includes("aistudio.google.com"):
+        return "gemini";
+
+      case hostname.includes("grok.x.ai") ||
+        (hostname.includes("x.com") && path.includes("/i/grok")):
+        return "grok";
+
+      case hostname.includes("t3chat.com"):
+        return "t3chat";
+
+      case hostname.includes("perplexity.ai"):
+        return "perplexity";
+
+      case hostname.includes("mistral.ai"):
+        return "mistral";
+
+      case hostname.includes("deepseek.com"):
+        return "deepseek";
+
+      default:
+        return "unknown";
     }
-    if (hostname.includes("gemini.google.com") || hostname.includes("aistudio.google.com")) {
-      return "gemini";
-    }
-    if (hostname.includes("claude.ai") || hostname.includes("anthropic.com")) {
-      return "claude";
-    }
-    if (hostname.includes("perplexity.ai")) {
-      return "perplexity";
-    }
-    if (hostname.includes("grok.x.ai") || hostname.includes("x.com/i/grok")) {
-      return "grok";
-    }
-    
-    return "unknown";
   } catch {
     return "unknown";
   }
@@ -93,10 +118,13 @@ export function detectProvider(url: string): Provider {
 export function getProviderDisplayName(provider: Provider): string {
   const names: Record<Provider, string> = {
     chatgpt: "ChatGPT",
-    gemini: "Gemini",
     claude: "Claude",
-    perplexity: "Perplexity",
+    gemini: "Gemini",
     grok: "Grok",
+    t3chat: "T3Chat",
+    perplexity: "Perplexity",
+    mistral: "Mistral",
+    deepseek: "DeepSeek",
     unknown: "Unknown",
   };
   return names[provider];
@@ -105,10 +133,13 @@ export function getProviderDisplayName(provider: Provider): string {
 export function getProviderColor(provider: Provider): string {
   const colors: Record<Provider, string> = {
     chatgpt: "#10a37f",
-    gemini: "#4285f4",
     claude: "#cc785c",
-    perplexity: "#20b8cd",
+    gemini: "#4285f4",
     grok: "#ffffff",
+    t3chat: "#f8e6f4",
+    perplexity: "#20b8cd",
+    mistral: "#ffffff",
+    deepseek: "#ffffff",
     unknown: "#6b7280",
   };
   return colors[provider];

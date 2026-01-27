@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Sparkles, Info, Link2, Video } from "lucide-react";
+import { X, Sparkles, Info, Link2 } from "lucide-react";
 
 const STORAGE_KEY = "continue-ai-how-to-seen";
 
@@ -35,7 +35,7 @@ export function HowToModal() {
       {/* Modal */}
       <div className="relative w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
         {/* Header gradient */}
-        <div className="h-1 bg-gradient-to-r from-primary via-accent to-secondary" />
+        <div className="h-1 bg-linear-to-r from-primary via-accent to-secondary" />
 
         <div className="p-6">
           {/* Close button */}
@@ -48,7 +48,7 @@ export function HowToModal() {
 
           {/* Title */}
           <div className="text-center mb-6">
-            <div className="w-14 h-14 mx-auto mb-4 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-xl bg-linear-to-br from-primary to-accent flex items-center justify-center">
               <Sparkles className="text-primary-foreground" size={28} />
             </div>
             <h2 className="text-2xl font-bold text-foreground">
@@ -67,23 +67,11 @@ export function HowToModal() {
               description="Pick GPT / Claude / Gemini (via AI Gateway) and keep going."
             />
 
-            <div className="pt-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                Using a shared link
-              </p>
-              <div className="space-y-3">
-                <Step
-                  icon={<Link2 size={18} />}
-                  title="Paste share link (Capture Mode)"
-                  description="We’ll help you screen-capture the share page and OCR it into a transcript."
-                />
-                <Step
-                  icon={<Video size={18} />}
-                  title="Record + scroll"
-                  description="Open the link, start capture, scroll the conversation, then OCR & import."
-                />
-              </div>
-            </div>
+            <Step
+              icon={<Link2 size={18} />}
+              title="Paste a shared link"
+              description="We'll automatically scrape the conversation from ChatGPT, Claude, or Gemini."
+            />
           </div>
 
           {/* Tip */}
@@ -93,15 +81,8 @@ export function HowToModal() {
               <p className="text-foreground font-medium">Pro tip</p>
               <div className="mt-1 space-y-1 text-muted-foreground">
                 <p>
-                  <span className="text-foreground">Paste Transcript:</span>{" "}
-                  Format with <span className="text-foreground">User:</span> and{" "}
-                  <span className="text-foreground">Assistant:</span> prefixes
-                  for best results (raw paste works too).
-                </p>
-                <p>
-                  <span className="text-foreground">Capture Mode:</span> Start
-                  from the top and scroll the shared page slowly so the capture
-                  can pick up all content.
+                  You can import shared links from multiple providers. Just
+                  paste the URL and we handle the rest!
                 </p>
               </div>
             </div>
@@ -161,7 +142,7 @@ export function HowToButton() {
             onClick={() => setIsOpen(false)}
           />
           <div className="relative w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
-            <div className="h-1 bg-gradient-to-r from-primary via-accent to-secondary" />
+            <div className="h-1 bg-linear-to-r from-primary via-accent to-secondary" />
             <div className="p-6">
               <button
                 onClick={() => setIsOpen(false)}
@@ -180,23 +161,11 @@ export function HowToButton() {
                   title="Continue"
                   description="Choose GPT / Claude / Gemini and keep going."
                 />
-                <div className="pt-2">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                    Using a shared link
-                  </p>
-                  <div className="space-y-3">
-                    <Step
-                      icon={<Link2 size={18} />}
-                      title="Paste share link (Capture Mode)"
-                      description="Capture the share page and OCR it into a transcript."
-                    />
-                    <Step
-                      icon={<Video size={18} />}
-                      title="Scroll while recording"
-                      description="Start capture, select the share tab, scroll, then OCR & import."
-                    />
-                  </div>
-                </div>
+                <Step
+                  icon={<Link2 size={18} />}
+                  title="Paste a shared link"
+                  description="We'll automatically scrape the conversation from ChatGPT, Claude, or Gemini."
+                />
               </div>
             </div>
           </div>
