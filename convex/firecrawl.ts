@@ -35,6 +35,12 @@ function parseConversationFromMarkdown(markdown: string): {
     /ChatGPT can make mistakes/i,
     /Check important info/i,
     /Report conversation/i,
+    // ChatGPT UI elements that appear at the end
+    /^Attach$/m,
+    /^Search$/m,
+    /^Study$/m,
+    /^Create image$/m,
+    /^Voice$/m,
   ];
   
   let conversationEnd = markdown.length;

@@ -15,7 +15,15 @@ Guidelines:
 - Be helpful, accurate, and thoughtful
 - If the conversation was about a specific task, help complete it
 - If there were any issues or hallucinations in the previous conversation, help correct them
-- Acknowledge the context when appropriate but don't repeatedly mention that you're continuing from another AI`;
+- Acknowledge the context when appropriate but don't repeatedly mention that you're continuing from another AI
+
+Formatting:
+- Use markdown formatting in your responses for better readability
+- Use **bold** for emphasis and important terms
+- Use \`code\` for inline code and \`\`\`language for code blocks
+- Use bullet points and numbered lists when appropriate
+- Use headers (##, ###) to organize longer responses
+- Use tables when presenting structured data`;
 
 export async function POST(req: Request) {
   try {
