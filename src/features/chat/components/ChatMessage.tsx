@@ -6,6 +6,7 @@ import { useState, memo, useCallback } from "react";
 import type { ChatMessageProps } from "@/features/chat/types";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import rehypeHighlight from "rehype-highlight";
 
 export function ChatMessage({
@@ -32,7 +33,7 @@ export function ChatMessage({
     >
       <div
         className={cn(
-          "group w-full max-w-[92%] sm:max-w-[80%]",
+          "group w-[900px] max-w-[92%] sm:max-w-[80%]",
           isUser && "ml-auto",
         )}
       >
@@ -49,17 +50,17 @@ export function ChatMessage({
           <div
             className={cn(
               "prose prose-sm max-w-none dark:prose-invert",
-              "prose-p:leading-relaxed prose-p:my-2",
-              "prose-headings:font-semibold prose-headings:my-3",
+              "prose-p:leading-relaxed prose-p:mt-0 prose-p:mb-3 last:prose-p:mb-0",
+              "prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2",
               "prose-h1:text-xl prose-h2:text-lg prose-h3:text-base",
               "prose-ul:my-2 prose-ul:list-disc prose-ul:pl-5",
               "prose-ol:my-2 prose-ol:list-decimal prose-ol:pl-5",
-              "prose-li:my-1",
+              "prose-li:my-0",
               "prose-table:border-collapse prose-table:w-full prose-table:my-3",
-              "prose-th:border prose-th:border-border prose-th:bg-muted prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:font-semibold",
+              "prose-th:border prose-th:border-border prose-th:bg-muted/50 prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:font-semibold",
               "prose-td:border prose-td:border-border prose-td:px-3 prose-td:py-2",
-              "prose-blockquote:border-l-4 prose-blockquote:border-primary/50 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:my-3",
-              "prose-hr:my-4 prose-hr:border-border",
+              "prose-blockquote:border-l-4 prose-blockquote:border-primary/50 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:my-2",
+              "prose-hr:my-3 prose-hr:border-border",
               "prose-strong:font-bold prose-strong:text-foreground",
               "prose-em:italic",
             )}
@@ -221,7 +222,7 @@ const MessageContent = memo(function MessageContent({
   return (
     <>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkBreaks]}
         rehypePlugins={[rehypeHighlight]}
         components={{
           // Custom code block rendering with copy button
