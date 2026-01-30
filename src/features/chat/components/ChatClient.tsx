@@ -4,8 +4,8 @@ import { useParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { useEffect, useRef, useState, useMemo } from "react";
-import { AlertTriangle, ArrowLeft, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { AlertTriangle, ArrowDown, ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -19,6 +19,7 @@ export function ChatClient() {
   const chatId = params.chatId as Id<"chats">;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [selectedModel, setSelectedModel] = useState(getDefaultModel().id);
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const lastSavedAssistantIdRef = useRef<string | null>(null);
   const hasSeededRef = useRef(false);
 
@@ -35,7 +36,7 @@ export function ChatClient() {
         api: "/api/chat",
         body: { model: selectedModel },
       }),
-    [selectedModel]
+    [selectedModel],
   );
 
   // AI chat hook - new v5 API
@@ -90,7 +91,7 @@ export function ChatClient() {
         content: msg.parts
           .filter(
             (part): part is { type: "text"; text: string } =>
-              part.type === "text"
+              part.type === "text",
           )
           .map((part) => part.text)
           .join(""),
@@ -111,6 +112,44 @@ export function ChatClient() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [displayMessages]);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  // Detect if user has scrolled up
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollContainer = document.getElementById("chat-scroll-container");
+
+      let isAway = false;
+      if (scrollContainer) {
+        const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+        isAway = scrollHeight - scrollTop - clientHeight > 200;
+      } else {
+        // Fallback to window scroll
+        const scrollY = window.scrollY;
+        const totalHeight = document.documentElement.scrollHeight;
+        const viewportHeight = window.innerHeight;
+        isAway = totalHeight - scrollY - viewportHeight > 200;
+      }
+
+      setShowScrollButton(isAway);
+    };
+
+    const container = document.getElementById("chat-scroll-container");
+    const target = container || window;
+
+    target.addEventListener("scroll", handleScroll, { passive: true });
+    // Initial check with delay to ensure rendering is complete
+    const timer = setTimeout(handleScroll, 100);
+
+    return () => {
+      target.removeEventListener("scroll", handleScroll);
+      clearTimeout(timer);
+    };
+  }, [displayMessages.length]);
+
 
   const isLoading = status === "submitted" || status === "streaming";
   const isStreaming = status === "streaming";
@@ -151,7 +190,7 @@ export function ChatClient() {
 
     const content = lastMessage.parts
       .filter(
-        (part): part is { type: "text"; text: string } => part.type === "text"
+        (part): part is { type: "text"; text: string } => part.type === "text",
       )
       .map((part) => part.text)
       .join("");
@@ -193,7 +232,7 @@ export function ChatClient() {
   return (
     <div className="relative flex min-h-full flex-col bg-zinc-950">
       <div className="flex-1">
-        <div className="mx-auto w-full max-w-4xl px-4 pb-50">
+        <div className="mx-auto w-full max-w-4xl px-4 pb-[200px]">
           {!!chatError && (
             <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-200">
               <div className="flex items-start gap-3">
@@ -267,7 +306,19 @@ export function ChatClient() {
               : "100vw",
         }}
       >
-        <div className="pointer-events-auto mx-auto w-full max-w-3xl">
+        <div className="pointer-events-auto relative mx-auto w-full max-w-3xl">
+          {showScrollButton && (
+            <button
+              onClick={scrollToBottom}
+              className="absolute bottom-38 left-1/2 -translate-x-1/2 group flex h-8 w-8 items-center justify-center rounded-full border border-white/30 bg-black/10 text-white shadow-xl backdrop-blur-sm transition-all hover:bg-white/10 hover:scale-110 active:scale-95 z-50 animate-in fade-in zoom-in duration-200"
+              aria-label="Scroll to bottom"
+            >
+              <ArrowDown
+                size={18}
+                className="transition-transform group-hover:translate-y-0.5"
+              />
+            </button>
+          )}
           <ChatInput
             onSend={handleSend}
             isLoading={isLoading}

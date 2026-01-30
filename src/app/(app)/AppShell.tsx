@@ -86,14 +86,14 @@ function ShellLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <AppSidebar />
-      <SidebarInset className="bg-zinc-950">
-        <div className="flex min-h-screen flex-col">
+      <SidebarInset className="bg-zinc-950 h-[100dvh] flex flex-col overflow-hidden">
+        <div className="flex flex-1 flex-col min-h-0">
           <header className="sticky top-2 z-40 pl-2 pointer-events-none">
             <div className="flex h-12 items-center">
               <div
                 className={cn(
                   "pointer-events-auto flex items-center gap-3 rounded-2xl border border-white/10 bg-black/60 p-1 text-white shadow-lg backdrop-blur",
-                  hideTriggerGroup && "pointer-events-none opacity-0 scale-95"
+                  hideTriggerGroup && "pointer-events-none opacity-0 scale-95",
                 )}
                 aria-hidden={hideTriggerGroup}
               >
@@ -119,7 +119,9 @@ function ShellLayout({ children }: { children: ReactNode }) {
               </div>
             </div>
           </header>
-          <div className="flex-1 overflow-y-auto">{children}</div>
+          <div id="chat-scroll-container" className="flex-1 overflow-y-auto">
+            {children}
+          </div>
         </div>
       </SidebarInset>
     </>
