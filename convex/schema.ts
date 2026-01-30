@@ -25,11 +25,20 @@ export default defineSchema({
     }),
   })
     .index("by_owner", ["ownerId"])
-    .index("by_updated", ["updatedAt"]),
+    .index("by_updated", ["updatedAt"])
+    .searchIndex("search_title", {
+      searchField: "title",
+      filterFields: ["ownerId"],
+    }),
 
   messages: defineTable({
     chatId: v.id("chats"),
-    role: v.union(v.literal("system"), v.literal("user"), v.literal("assistant")),
+    ownerId: v.optional(v.id("users")),
+    role: v.union(
+      v.literal("system"),
+      v.literal("user"),
+      v.literal("assistant"),
+    ),
     content: v.string(),
     createdAt: v.number(),
     order: v.number(),
@@ -38,11 +47,16 @@ export default defineSchema({
         model: v.optional(v.string()),
         tokenCount: v.optional(v.number()),
         isImported: v.optional(v.boolean()),
-      })
+      }),
     ),
   })
     .index("by_chat", ["chatId"])
-    .index("by_chat_order", ["chatId", "order"]),
+    .index("by_chat_order", ["chatId", "order"])
+    .index("by_owner", ["ownerId"])
+    .searchIndex("search_content", {
+      searchField: "content",
+      filterFields: ["ownerId", "role"],
+    }),
 
   imports: defineTable({
     ownerId: v.id("users"),
@@ -52,7 +66,7 @@ export default defineSchema({
       v.literal("pending"),
       v.literal("processing"),
       v.literal("success"),
-      v.literal("failed")
+      v.literal("failed"),
     ),
     errorCode: v.optional(v.string()),
     errorMessage: v.optional(v.string()),
@@ -70,7 +84,7 @@ export default defineSchema({
       v.object({
         theme: v.optional(v.string()),
         compactMode: v.optional(v.boolean()),
-      })
+      }),
     ),
   }).index("by_owner", ["ownerId"]),
 });

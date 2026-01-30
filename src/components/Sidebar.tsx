@@ -2,12 +2,14 @@
 
 import { useQuery } from "convex/react";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { UserButton, useUser } from "@clerk/nextjs";
 import {
   MessageSquarePlus,
   MessageCircle,
   Search as SearchIcon,
+  X,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { api } from "../../convex/_generated/api";
@@ -27,12 +29,40 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const chats = useQuery(api.chats.getUserChats);
-  const { user } = useUser();
   const sidebar = useSidebar();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  // Simple debounce logic
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const isSearching = searchQuery.trim().length > 0;
+  const isDebouncing = searchQuery !== debouncedQuery;
+
+  const allChats = useQuery(api.chats.getUserChats, isSearching ? "skip" : {});
+
+  const searchedChats = useQuery(
+    api.chats.searchChats,
+    isSearching && debouncedQuery.trim() ? { query: debouncedQuery } : "skip",
+  );
+
+  const chats = isSearching ? searchedChats : allChats;
+  const isLoading = isSearching
+    ? isDebouncing || searchedChats === undefined
+    : allChats === undefined;
+
+  const { user } = useUser();
 
   const displayName =
     user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? "";
@@ -79,8 +109,18 @@ export function Sidebar() {
             <SidebarInput
               id="sidebar-thread-search"
               placeholder="Search your threads..."
-              className="bg-sidebar-accent/30 pl-9 pr-3 text-sm text-sidebar-foreground placeholder:text-sidebar-foreground/50"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-sidebar-accent/30 pl-9 pr-9 text-sm text-sidebar-foreground placeholder:text-sidebar-foreground/50 transition-all focus:bg-sidebar-accent/50"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-sidebar-foreground/40 hover:text-sidebar-foreground/80 transition-colors"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
         </div>
       </SidebarHeader>
@@ -88,49 +128,66 @@ export function Sidebar() {
       <SidebarContent className="px-2 py-4">
         <SidebarGroup>
           <SidebarGroupLabel className="text-[11px] font-semibold uppercase tracking-[0.3em] text-sidebar-foreground/60">
-            Recent
+            {debouncedQuery.trim() ? "Search Results" : "Recent"}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {chats?.map((chat) => {
-                const isActive = pathname === `/chat/${chat._id}`;
-                return (
-                  <SidebarMenuItem key={chat._id}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={chat.title}
-                      className={cn(
-                        "border border-transparent text-sm",
-                        "data-[active=true]:border-sidebar-border data-[active=true]:bg-sidebar-accent/40 data-[active=true]:text-sidebar-accent-foreground"
-                      )}
-                    >
-                      <Link
-                        href={`/chat/${chat._id}`}
-                        onClick={handleNavigate}
-                        className="flex items-center gap-3"
+              {isLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              ) : (
+                chats?.map((chat) => {
+                  const isActive = pathname === `/chat/${chat._id}`;
+                  return (
+                    <SidebarMenuItem key={chat._id}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={chat.title}
+                        className={cn(
+                          "border border-transparent text-sm",
+                          "data-[active=true]:border-sidebar-border data-[active=true]:bg-sidebar-accent/40 data-[active=true]:text-sidebar-accent-foreground",
+                        )}
                       >
-                        <MessageCircle
-                          size={16}
-                          style={{
-                            color: isActive
-                              ? undefined
-                              : getProviderColor(
-                                  chat.source.provider as Provider
-                                ),
-                          }}
-                        />
-                        <span className="truncate">{chat.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+                        <Link
+                          href={`/chat/${chat._id}`}
+                          onClick={handleNavigate}
+                          className="flex items-center gap-3"
+                        >
+                          <MessageCircle
+                            size={16}
+                            style={{
+                              color: isActive
+                                ? undefined
+                                : getProviderColor(
+                                    chat.source.provider as Provider,
+                                  ),
+                            }}
+                          />
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="truncate">{chat.title}</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" align="start">
+                              <p className="max-w-[280px] text-xs">
+                                {chat.title}
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })
+              )}
             </SidebarMenu>
 
-            {!hasChats && (
+            {!hasChats && !isLoading && (
               <p className="mt-4 rounded-xl border border-dashed border-sidebar-border/60 px-3 py-4 text-center text-xs text-sidebar-foreground/60">
-                No chats yet. Import a conversation to get started.
+                {debouncedQuery.trim()
+                  ? `No results found for "${debouncedQuery}"`
+                  : "No chats yet. Import a conversation to get started."}
               </p>
             )}
           </SidebarGroupContent>
