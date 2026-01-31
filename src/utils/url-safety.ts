@@ -67,8 +67,8 @@ export type Provider =
   | "gemini"
   | "grok"
   | "t3chat"
-  | "mistral"
   | "perplexity"
+  | "mistral"
   | "deepseek"
   | "unknown";
 

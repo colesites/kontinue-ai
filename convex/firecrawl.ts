@@ -128,6 +128,173 @@ function parseConversationFromMarkdown(markdown: string): {
   return { title, messages };
 }
 
+/**
+ * Check if URL is a Gemini shared link
+ */
+function isGeminiUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.includes("gemini.google.com");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Parse markdown content from Gemini shared pages using strict deterministic rules.
+ * 
+ * Algorithm:
+ * 1. Normalize text (CRLF->LF, trim lines, collapse blank lines)
+ * 2. Remove boilerplate using regex patterns
+ * 3. Split into blocks using double newlines
+ * 4. Score each block for "assistant" vs "user" traits
+ * 5. Apply alternation guard
+ */
+export function parseGeminiFromMarkdown(markdown: string): {
+  title: string | null;
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+} {
+  const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
+  let title: string | null = null;
+
+  // 1) Normalize text
+  let normalized = markdown
+    .replace(/\r\n/g, "\n") // Convert CRLF to LF
+    .replace(/[ \t]+$/gm, "") // Trim trailing spaces
+    .replace(/\n{3,}/g, "\n\n"); // Collapse 3+ blank lines to 2
+  
+  // MERGE rules: Collapse blank lines before a bullet point so lists stay attached to previous text
+  normalized = normalized.replace(/\n{2,}([-*]\s+)/g, "\n$1");
+
+  // Extract title from H1 (# **Title**) or just # Title before stripping boilerplate
+  // Regex allows for optional markdown bold/italic markers
+  const titleMatch = normalized.match(/^#\s+(?:[*_]{2})?(.+?)(?:[*_]{2})?\s*$/m);
+  if (titleMatch) {
+    title = titleMatch[1].trim();
+  }
+
+  // 2) Remove boilerplate blocks
+  const boilerplatePatterns = [
+    /^\[Sign in\]\(https?:\/\/accounts\.google\.com\/.*\)$/im,
+    /^\[Gemini\]\(https?:\/\/gemini\.google\.com\/app\)$/im,
+    /^\[About Gemini.*$/im,
+    /^\[Gemini App.*$/im,
+    /^\[Subscriptions.*$/im,
+    /^\[For Business.*$/im,
+    /^#\s+\*\*.*\*\*\s*$/m, // Title line
+    /^https?:\/\/gemini\.google\.com\/share\/\S+$/m, // Share link (plain)
+    /^\[https?:\/\/gemini\.google\.com\/share\/.*$/m, // Share link (markdown)
+    /^Created with .*$/m,
+    /^Published .*$/m,
+    /^\[Google Privacy Policy.*$/im,
+    /^\[Google Terms of Service.*$/im,
+    /^Gemini may display inaccurate info.*$/im,
+    /^Sign in$/m,
+    /^Copy public link$/m,
+    /^Report$/m,
+  ];
+
+  for (const pattern of boilerplatePatterns) {
+    // Replace valid boilerplate lines with empty string
+    // We use a loop to handle multiple occurrences if necessary, though most appear once
+    // Using split/join or replaceAll is safer for global removal if strict global flag isn't used in regex
+    // The user patterns provided have ^, so they match lines.
+    // We'll iterate and remove all matching lines.
+    const lines = normalized.split("\n");
+    const filteredLines = lines.filter((line) => {
+      for (const p of boilerplatePatterns) {
+        if (p.test(line)) return false;
+      }
+      return true;
+    });
+    normalized = filteredLines.join("\n");
+  }
+
+  // Re-normalize after stripping lines to ensure clean blocks
+  normalized = normalized.replace(/\n{3,}/g, "\n\n").trim();
+
+  // 3) Split into message "blocks"
+  // Use 2+ newlines as a separator
+  const blocks = normalized.split(/\n{2,}/).filter((b) => b.trim().length > 0);
+
+  if (blocks.length === 0) {
+    return { title, messages };
+  }
+
+  // 4) Classify each block with deterministic scoring
+  const scoredBlocks = blocks.map((block) => {
+    let assistantScore = 0;
+    let userScore = 0;
+
+    // assistantScore rules
+    if (/(How can I help|I can assist|Would you like|Here are|Here's|Sure|Loud and clear)/i.test(block)) {
+      assistantScore += 6;
+    }
+    if (/^[-*]\s+/m.test(block)) {
+      assistantScore += 4;
+    }
+    if (/\*\*[^*]+\*\*/.test(block)) {
+      assistantScore += 2;
+    }
+    if (block.length > 160) {
+      assistantScore += 2;
+    }
+    const sentenceEndings = (block.match(/[.!?](\s|$)/g) || []).length;
+    if (sentenceEndings >= 2) {
+      assistantScore += 2;
+    }
+
+    // userScore rules
+    if (block.length <= 80) {
+      userScore += 3;
+    }
+    // Check if NOT a bullet list (no line starts with - or *)
+    if (!/^[-*]\s+/m.test(block)) {
+      userScore += 1;
+    }
+    // Check if NOT bold markdown
+    if (!/\*\*[^*]+\*\*/.test(block)) {
+      userScore += 1;
+    }
+    // Check if single line
+    if (!block.includes("\n")) {
+      userScore += 1;
+    }
+
+    const role: "user" | "assistant" = assistantScore > userScore ? "assistant" : "user";
+    return { role, content: block, assistantScore, userScore };
+  });
+
+  // 5) Alternation guard
+  // Gemini chats typically alternate user -> assistant.
+  // We'll iterate and enforce alternation if scores are close.
+  // Assuming strict alternation is desirable: User -> Assistant -> User -> Assistant
+  // However, the user said "If two consecutive blocks end up with the same role".
+  
+  // We'll process from index 1
+  for (let i = 1; i < scoredBlocks.length; i++) {
+    const prev = scoredBlocks[i - 1];
+    const curr = scoredBlocks[i];
+
+    if (prev.role === curr.role) {
+      const scoreDiff = Math.abs(curr.assistantScore - curr.userScore);
+      // "If the score difference is small (<= 2), flip the current block's role"
+      if (scoreDiff <= 2) {
+        curr.role = curr.role === "user" ? "assistant" : "user";
+      }
+      // "If the difference is large, keep it." -> do nothing
+    }
+  }
+
+  // 6) Output
+  return {
+    title,
+    messages: scoredBlocks.map((b) => ({ role: b.role, content: b.content })),
+  };
+}
+
+
+
 export const scrapeUrl = action({
   args: {
     url: v.string(),
@@ -190,11 +357,22 @@ export const scrapeUrl = action({
       throw new Error("No content found on the page");
     }
 
-    // Parse the markdown to extract messages
-    const parsed = parseConversationFromMarkdown(markdown);
+    // Parse the markdown to extract messages based on provider
+    // Note: parseGeminiFromMarkdown is now synchronous
+    const parsed = isGeminiUrl(args.url)
+      ? parseGeminiFromMarkdown(markdown)
+      : parseConversationFromMarkdown(markdown);
 
-    // Prefer metadata title (page title) over extracted title
-    const finalTitle = result.data?.metadata?.title || parsed.title;
+    // Determine title based on provider
+    let finalTitle: string | null = null;
+
+    if (isGeminiUrl(args.url)) {
+      // For Gemini, parsed title (H1) is better than generic metadata title
+      finalTitle = parsed.title || result.data?.metadata?.title || null;
+    } else {
+      // For ChatGPT/others, metadata title is usually better than parsed fallback
+      finalTitle = result.data?.metadata?.title || parsed.title || null;
+    }
     return {
       markdown,
       title: finalTitle,
