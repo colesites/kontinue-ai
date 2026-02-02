@@ -29,6 +29,20 @@ export const createChat = mutation({
       throw new Error("User not found");
     }
 
+    // Feature gating: Limit free users to 10 chats
+    if (user.plan !== "pro") {
+      const chatCount = await ctx.db
+        .query("chats")
+        .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
+        .collect();
+
+      if (chatCount.length >= 10) {
+        throw new Error(
+          "Free tier limit reached (10 chats). Please upgrade to Pro to continue importing.",
+        );
+      }
+    }
+
     const now = Date.now();
 
     const chatId = await ctx.db.insert("chats", {
@@ -61,7 +75,7 @@ export const createChat = mutation({
     }
 
     return chatId;
-  },
+  }
 });
 
 export const getChat = query({

@@ -10,6 +10,7 @@ import {
   MessageCircle,
   Search as SearchIcon,
   X,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { api } from "../../convex/_generated/api";
@@ -74,6 +75,11 @@ export function Sidebar() {
       sidebar.setOpenMobile(false);
     }
   };
+
+  const entitlements = (user as any)?.entitlements || [];
+  const isPro = entitlements.some(
+    (e: any) => e.key === "pro" || e.name === "Pro",
+  );
 
   return (
     <SidebarPrimitive
@@ -195,18 +201,40 @@ export function Sidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border/60 p-4">
-        <div className="flex items-center gap-3">
-          <UserButton
-            appearance={{
-              elements: {
-                avatarBox: "w-9 h-9",
-              },
-            }}
-          />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium leading-tight">
-              {displayName || "Logged in"}
-            </p>
+        <div className="space-y-4">
+          {!isPro && (
+            <Link
+              href="/pricing"
+              onClick={handleNavigate}
+              className="flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/20 p-3 text-xs font-semibold text-primary hover:bg-primary/20 transition-all group"
+            >
+              <Sparkles
+                size={14}
+                className="group-hover:rotate-12 transition-transform"
+              />
+              <span>Upgrade to Pro</span>
+            </Link>
+          )}
+          <div className="flex items-center gap-3">
+            <UserButton
+              appearance={{
+                elements: {
+                  avatarBox: "w-9 h-9",
+                },
+              }}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-medium leading-tight text-sidebar-foreground">
+                  {displayName || "Logged in"}
+                </p>
+                {isPro && (
+                  <span className="shrink-0 rounded-md bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary border border-primary/30">
+                    PRO
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </SidebarFooter>

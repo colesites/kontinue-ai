@@ -7,6 +7,8 @@ export const getOrCreateUser = mutation({
     email: v.string(),
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
+    subscriptionStatus: v.optional(v.string()),
+    plan: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -16,11 +18,15 @@ export const getOrCreateUser = mutation({
 
     if (existing) {
       // Update if needed
-      if (existing.name !== args.name || existing.imageUrl !== args.imageUrl) {
-        await ctx.db.patch(existing._id, {
-          name: args.name,
-          imageUrl: args.imageUrl,
-        });
+      const patches: any = {};
+      if (existing.name !== args.name) patches.name = args.name;
+      if (existing.imageUrl !== args.imageUrl) patches.imageUrl = args.imageUrl;
+      if (existing.subscriptionStatus !== args.subscriptionStatus)
+        patches.subscriptionStatus = args.subscriptionStatus;
+      if (existing.plan !== args.plan) patches.plan = args.plan;
+
+      if (Object.keys(patches).length > 0) {
+        await ctx.db.patch(existing._id, patches);
       }
       return existing._id;
     }
@@ -30,6 +36,8 @@ export const getOrCreateUser = mutation({
       email: args.email,
       name: args.name,
       imageUrl: args.imageUrl,
+      subscriptionStatus: args.subscriptionStatus,
+      plan: args.plan,
       createdAt: Date.now(),
     });
   },

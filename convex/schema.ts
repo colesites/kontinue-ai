@@ -7,6 +7,8 @@ export default defineSchema({
     email: v.string(),
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
+    subscriptionStatus: v.optional(v.string()), // 'active', 'canceled'
+    plan: v.optional(v.string()), // 'free', 'pro'
     createdAt: v.number(),
   })
     .index("by_clerk_id", ["clerkUserId"])

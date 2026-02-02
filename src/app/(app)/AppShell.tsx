@@ -22,11 +22,18 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isLoaded && user) {
+      const entitlements = (user as any)?.entitlements || [];
+      const isPro = entitlements.some(
+        (e: any) => e.key === "pro" || e.name === "Pro",
+      );
+      
       getOrCreateUser({
         clerkUserId: user.id,
         email: user.primaryEmailAddress?.emailAddress ?? "",
         name: user.fullName ?? undefined,
         imageUrl: user.imageUrl ?? undefined,
+        subscriptionStatus: isPro ? "active" : "inactive",
+        plan: isPro ? "pro" : "free",
       });
     }
   }, [isLoaded, user, getOrCreateUser]);
@@ -86,7 +93,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <AppSidebar />
-      <SidebarInset className="bg-zinc-950 h-[100dvh] flex flex-col overflow-hidden">
+      <SidebarInset className="bg-zinc-950 h-dvh flex flex-col overflow-hidden">
         <div className="flex flex-1 flex-col min-h-0">
           <header className="sticky top-2 z-40 pl-2 pointer-events-none">
             <div className="flex h-12 items-center">
