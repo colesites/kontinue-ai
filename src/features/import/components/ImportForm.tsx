@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useAction } from "convex/react";
-import { Link2, Loader2, AlertCircle, CheckIcon } from "lucide-react";
+import { Link2, Loader2, AlertCircle, CheckIcon, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/utils/cn";
 import {
   detectProvider,
   getProviderDisplayName,
   getProviderColor,
+  Provider,
 } from "@/utils/url-safety";
 import { useImportStore } from "../lib/useImportStore";
 import { api } from "../../../../convex/_generated/api";
@@ -25,7 +26,7 @@ import {
   ModelSelectorName,
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector";
-import { AVAILABLE_MODELS } from "@/lib/models";
+import { AVAILABLE_MODELS, getModelById } from "@/lib/models";
 
 
 
@@ -45,10 +46,9 @@ export function ImportForm() {
     reset,
   } = useImportStore();
 
-  // Use action instead of mutation + query polling
   const scrapeUrl = useAction(api.firecrawl.scrapeUrl);
   const createChat = useMutation(api.chats.createChat);
-  const addMessage = useMutation(api.messages.addMessage);
+  const [isStartingBlank, setIsStartingBlank] = useState(false);
 
   useEffect(() => {
     reset();
@@ -60,10 +60,50 @@ export function ImportForm() {
     setProvider(detected);
   };
 
-  const handleImport = async () => {
-    if (!url.trim()) return;
+  const handleCreateChat = async () => {
+    // If URL is empty, we are starting a blank chat
+    if (!url.trim()) {
+      await handleStartBlankChat();
+      return;
+    }
 
-    // Validate URL to prevent downstream errors
+    // Otherwise, we are importing
+    await handleImport();
+  };
+
+  const handleStartBlankChat = async () => {
+    setIsStartingBlank(true);
+    try {
+      const modelData = getModelById(selectedModel);
+      const providerMap: Record<string, Provider> = {
+        openai: "chatgpt",
+        anthropic: "claude",
+        google: "gemini",
+      };
+
+      const chatProvider = modelData
+        ? providerMap[modelData.provider]
+        : "unknown";
+
+      const chatId = await createChat({
+        title: "New Conversation",
+        provider: chatProvider,
+        importMethod: "manual",
+        messages: [],
+      });
+
+      setUrl("");
+      router.push(`/chat/${chatId}`);
+    } catch (err: unknown) {
+      console.error("Start chat error:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to start chat");
+    } finally {
+      setIsStartingBlank(false);
+    }
+  };
+
+  const handleImport = async () => {
+    // Validate URL
     try {
       const urlObj = new URL(url.trim());
       if (!["http:", "https:"].includes(urlObj.protocol)) {
@@ -78,7 +118,6 @@ export function ImportForm() {
     startImport();
 
     try {
-      // Call the action directly - it returns the scraped and parsed content
       const result = await scrapeUrl({
         url: url.trim(),
       });
@@ -102,12 +141,6 @@ export function ImportForm() {
         ),
       });
 
-      await addMessage({
-        chatId,
-        role: "assistant",
-        content: "I've imported your conversation. Ready to continue!",
-      });
-
       importSuccess(chatId);
       setUrl("");
       router.push(`/chat/${chatId}`);
@@ -120,10 +153,12 @@ export function ImportForm() {
     }
   };
 
-  const isProcessing = status === "importing";
+  const isProcessing = status === "importing" || isStartingBlank;
+  const hasUrl = url.trim().length > 0;
 
-  const helperText =
-    "Paste a shared link from ChatGPT, Claude, or Gemini. We'll automatically scrape and import the conversation history for you.";
+  const helperText = hasUrl
+    ? "We'll automatically scrape and import the conversation history for you."
+    : "Or just select a model and start a fresh conversation without importing shortcut keys.";
 
   return (
     <div className="space-y-4">
@@ -141,7 +176,7 @@ export function ImportForm() {
               type="url"
               value={url}
               onChange={(e) => handleUrlChange(e.target.value)}
-              placeholder="https://chatgpt.com/share/..."
+              placeholder="Paste shared link (optional)..."
               disabled={isProcessing}
               className={cn(
                 "w-full pl-12 pr-4 py-4 rounded-xl bg-background border text-foreground placeholder:text-muted-foreground placeholder:text-xs focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all",
@@ -150,8 +185,8 @@ export function ImportForm() {
                   : "border-input",
               )}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && url && !isProcessing) {
-                  handleImport();
+                if (e.key === "Enter" && !isProcessing) {
+                  handleCreateChat();
                 }
               }}
             />
@@ -178,11 +213,11 @@ export function ImportForm() {
         </div>
 
         <button
-          onClick={handleImport}
-          disabled={!url.trim() || isProcessing}
+          onClick={handleCreateChat}
+          disabled={isProcessing}
           className={cn(
-            "w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-semibold transition-all",
-            url.trim() && !isProcessing
+            "w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-semibold transition-all shadow-lg",
+            !isProcessing
               ? "bg-primary hover:bg-primary/90 text-primary-foreground"
               : "bg-muted text-muted-foreground cursor-not-allowed",
           )}
@@ -190,10 +225,19 @@ export function ImportForm() {
           {isProcessing ? (
             <>
               <Loader2 size={18} className="animate-spin" />
-              Importing...
+              {isStartingBlank ? "Starting Chat..." : "Importing..."}
             </>
           ) : (
-            <>Import Chat</>
+            <>
+              {hasUrl ? (
+                <>Import Chat</>
+              ) : (
+                <>
+                  <Plus size={18} />
+                  Start Blank Chat
+                </>
+              )}
+            </>
           )}
         </button>
 

@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { api } from "../../convex/_generated/api";
-import type { Provider } from "@/utils/url-safety";
+import { Provider, getProviderColor } from "@/utils/url-safety";
 import {
   Sidebar as SidebarPrimitive,
   SidebarContent,
@@ -127,8 +127,8 @@ export function Sidebar() {
 
       <SidebarContent className="px-2 py-4">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] font-semibold uppercase tracking-[0.3em] text-sidebar-foreground/60">
-            {debouncedQuery.trim() ? "Search Results" : "Recent"}
+          <SidebarGroupLabel className="text-[11px] font-semibold uppercase tracking-[0.3em] text-sidebar-foreground/60 px-2">
+            {debouncedQuery.trim() ? "Search Results" : "Recent Chats"}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -146,7 +146,7 @@ export function Sidebar() {
                         isActive={isActive}
                         tooltip={chat.title}
                         className={cn(
-                          "border border-transparent text-sm",
+                          "border border-transparent text-sm h-10 px-3",
                           "data-[active=true]:border-sidebar-border data-[active=true]:bg-sidebar-accent/40 data-[active=true]:text-sidebar-accent-foreground",
                         )}
                       >
@@ -212,19 +212,4 @@ export function Sidebar() {
       </SidebarFooter>
     </SidebarPrimitive>
   );
-}
-
-function getProviderColor(provider: Provider): string {
-  const colors: Record<Provider, string> = {
-    chatgpt: "#10a37f",
-    claude: "#cc785c",
-    gemini: "#4285f4",
-    grok: "#ffffff",
-    t3chat: "#f8e6f4",
-    perplexity: "#20b8cd",
-    mistral: "#ffffff",
-    deepseek: "#ffffff",
-    unknown: "#6b7280",
-  };
-  return colors[provider];
 }

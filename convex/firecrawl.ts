@@ -141,6 +141,18 @@ function isGeminiUrl(url: string): boolean {
 }
 
 /**
+ * Check if URL is a Claude shared link
+ */
+function isClaudeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.includes("claude.ai");
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Parse markdown content from Gemini shared pages using strict deterministic rules.
  * 
  * Algorithm:
@@ -293,6 +305,64 @@ export function parseGeminiFromMarkdown(markdown: string): {
   };
 }
 
+/**
+ * Parse markdown content from Claude shared pages.
+ * 
+ * Claude format:
+ * - Disclaimer header: "This is a copy of a chat between Claude and Cole..."
+ * - Messages separated by date lines (e.g. "Jan 31, 2026")
+ * - Pattern: User Message -> Date -> AI Message -> Date -> User...
+ */
+export function parseClaudeFromMarkdown(markdown: string): {
+  title: string | null;
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+} {
+  const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
+  
+  // 1) Normalize text
+  let normalized = markdown
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n");
+
+  // 2) Strip Claude disclaimer boilerplate
+  // Matches "This is a copy... Report" block at the start
+  const disclaimerPattern = /^This is a copy of a chat between[\s\S]*Report\s*/i;
+  normalized = normalized.replace(disclaimerPattern, "");
+  
+  // 3) Split by Date lines
+  // We look for lines that look like dates "Jan 31, 2025" or "Oct 2, 2024"
+  // Assuming format: Month DD, YYYY
+  // Regex: ^[A-Z][a-z]{2} \d{1,2}, \d{4}$ on a separate line
+  
+  // We'll split the text by these date separators.
+  // The split result will be:
+  // [0]: User Message 1
+  // [1]: AI Message 1
+  // [2]: User Message 2
+  // ... and so on.
+  // Note: The split also consumes the date line itself.
+  
+  const dateSeparator = /\n+[A-Z][a-z]{2} \d{1,2}, \d{4}\n+/;
+  
+  const parts = normalized.split(dateSeparator).map(p => p.trim()).filter(p => p.length > 0);
+  
+  // 4) Assign roles
+  // Typically starts with User.
+  // We'll assume strict alternation: User -> AI -> User -> AI
+  
+  let isUser = true;
+  for (const part of parts) {
+    messages.push({
+      role: isUser ? "user" : "assistant",
+      content: part
+    });
+    isUser = !isUser;
+  }
+  
+  return { title: null, messages };
+}
+
 
 
 export const scrapeUrl = action({
@@ -358,10 +428,14 @@ export const scrapeUrl = action({
     }
 
     // Parse the markdown to extract messages based on provider
-    // Note: parseGeminiFromMarkdown is now synchronous
-    const parsed = isGeminiUrl(args.url)
-      ? parseGeminiFromMarkdown(markdown)
-      : parseConversationFromMarkdown(markdown);
+    let parsed;
+    if (isGeminiUrl(args.url)) {
+      parsed = parseGeminiFromMarkdown(markdown);
+    } else if (isClaudeUrl(args.url)) {
+      parsed = parseClaudeFromMarkdown(markdown);
+    } else {
+      parsed = parseConversationFromMarkdown(markdown);
+    }
 
     // Determine title based on provider
     let finalTitle: string | null = null;
@@ -370,7 +444,7 @@ export const scrapeUrl = action({
       // For Gemini, parsed title (H1) is better than generic metadata title
       finalTitle = parsed.title || result.data?.metadata?.title || null;
     } else {
-      // For ChatGPT/others, metadata title is usually better than parsed fallback
+      // For ChatGPT/Claude/others, metadata title is usually better than parsed fallback
       finalTitle = result.data?.metadata?.title || parsed.title || null;
     }
     return {
