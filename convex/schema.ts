@@ -79,6 +79,14 @@ export default defineSchema({
     .index("by_owner", ["ownerId"])
     .index("by_status", ["status"]),
 
+  usage: defineTable({
+    ownerId: v.id("users"),
+    bucketType: v.union(v.literal("minute"), v.literal("day")),
+    bucketStartMs: v.number(),
+    requestCount: v.number(),
+    updatedAt: v.number(),
+  }).index("by_owner_bucket", ["ownerId", "bucketType", "bucketStartMs"]),
+
   userSettings: defineTable({
     ownerId: v.id("users"),
     defaultModel: v.string(),

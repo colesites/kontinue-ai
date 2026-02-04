@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useUser } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
 import { Plus, Search } from "lucide-react";
 import { useEffect } from "react";
@@ -18,15 +18,40 @@ import { cn } from "@/utils/cn";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, isLoaded } = useUser();
+  const { isLoaded: isAuthLoaded, has } = useAuth();
   const getOrCreateUser = useMutation(api.users.getOrCreateUser);
 
   useEffect(() => {
-    if (isLoaded && user) {
-      const entitlements = (user as any)?.entitlements || [];
-      const isPro = entitlements.some(
-        (e: any) => e.key === "pro" || e.name === "Pro",
+    if (isLoaded && isAuthLoaded && user) {
+      const isProFromClerkPlans =
+        typeof has === "function" ? has({ plan: "pro_plan" }) : false;
+
+      type Entitlement = { key?: string; name?: string };
+      type UserWithBilling = {
+        entitlements?: Entitlement[];
+        publicMetadata?: { plan?: string; subscriptionStatus?: string };
+        unsafeMetadata?: { plan?: string; subscriptionStatus?: string };
+      };
+
+      const billingUser = user as unknown as UserWithBilling;
+      const entitlements = billingUser.entitlements ?? [];
+      const isProFromEntitlements = entitlements.some(
+        (e) => e.key === "pro" || e.name === "Pro"
       );
-      
+
+      const planFromMetadata =
+        billingUser.publicMetadata?.plan ?? billingUser.unsafeMetadata?.plan;
+      const subscriptionStatusFromMetadata =
+        billingUser.publicMetadata?.subscriptionStatus ??
+        billingUser.unsafeMetadata?.subscriptionStatus;
+
+      const isProFromClerkLegacy =
+        planFromMetadata === "pro" ||
+        subscriptionStatusFromMetadata === "active" ||
+        isProFromEntitlements;
+
+      const isPro = isProFromClerkPlans || isProFromClerkLegacy;
+
       getOrCreateUser({
         clerkUserId: user.id,
         email: user.primaryEmailAddress?.emailAddress ?? "",
@@ -36,7 +61,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         plan: isPro ? "pro" : "free",
       });
     }
-  }, [isLoaded, user, getOrCreateUser]);
+  }, [isLoaded, isAuthLoaded, user, has, getOrCreateUser]);
 
   if (!isLoaded) {
     return (
@@ -100,7 +125,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
               <div
                 className={cn(
                   "pointer-events-auto flex items-center gap-3 rounded-2xl border border-white/10 bg-black/60 p-1 text-white shadow-lg backdrop-blur",
-                  hideTriggerGroup && "pointer-events-none opacity-0 scale-95",
+                  hideTriggerGroup && "pointer-events-none opacity-0 scale-95"
                 )}
                 aria-hidden={hideTriggerGroup}
               >

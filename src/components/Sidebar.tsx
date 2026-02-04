@@ -4,7 +4,7 @@ import { useQuery } from "convex/react";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { UserButton, useUser } from "@clerk/nextjs";
+import { UserButton, useAuth, useUser } from "@clerk/nextjs";
 import {
   MessageSquarePlus,
   MessageCircle,
@@ -55,7 +55,7 @@ export function Sidebar() {
 
   const searchedChats = useQuery(
     api.chats.searchChats,
-    isSearching && debouncedQuery.trim() ? { query: debouncedQuery } : "skip",
+    isSearching && debouncedQuery.trim() ? { query: debouncedQuery } : "skip"
   );
 
   const chats = isSearching ? searchedChats : allChats;
@@ -64,6 +64,7 @@ export function Sidebar() {
     : allChats === undefined;
 
   const { user } = useUser();
+  const { isLoaded: isAuthLoaded, has } = useAuth();
 
   const displayName =
     user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? "";
@@ -76,10 +77,35 @@ export function Sidebar() {
     }
   };
 
-  const entitlements = (user as any)?.entitlements || [];
-  const isPro = entitlements.some(
-    (e: any) => e.key === "pro" || e.name === "Pro",
-  );
+  const isProFromClerkPlans =
+    isAuthLoaded && typeof has === "function"
+      ? has({ plan: "pro_plan" })
+      : false;
+
+  type Entitlement = { key?: string; name?: string };
+  type UserWithBilling = {
+    entitlements?: Entitlement[];
+    publicMetadata?: { plan?: string; subscriptionStatus?: string };
+    unsafeMetadata?: { plan?: string; subscriptionStatus?: string };
+  };
+
+  const billingUser = user as unknown as UserWithBilling | null | undefined;
+  const entitlements = billingUser?.entitlements ?? [];
+
+  const planFromMetadata =
+    billingUser?.publicMetadata?.plan ?? billingUser?.unsafeMetadata?.plan;
+  const subscriptionStatusFromMetadata =
+    billingUser?.publicMetadata?.subscriptionStatus ??
+    billingUser?.unsafeMetadata?.subscriptionStatus;
+
+  const isProFromClerkLegacy =
+    planFromMetadata === "pro" ||
+    subscriptionStatusFromMetadata === "active" ||
+    entitlements.some((e) => e.key === "pro" || e.name === "Pro");
+
+  const currentUser = useQuery(api.users.getCurrentUser, {});
+  const isPro =
+    isProFromClerkPlans || isProFromClerkLegacy || currentUser?.plan === "pro";
 
   return (
     <SidebarPrimitive
@@ -153,7 +179,7 @@ export function Sidebar() {
                         tooltip={chat.title}
                         className={cn(
                           "border border-transparent text-sm h-10 px-3",
-                          "data-[active=true]:border-sidebar-border data-[active=true]:bg-sidebar-accent/40 data-[active=true]:text-sidebar-accent-foreground",
+                          "data-[active=true]:border-sidebar-border data-[active=true]:bg-sidebar-accent/40 data-[active=true]:text-sidebar-accent-foreground"
                         )}
                       >
                         <Link
@@ -167,7 +193,7 @@ export function Sidebar() {
                               color: isActive
                                 ? undefined
                                 : getProviderColor(
-                                    chat.source.provider as Provider,
+                                    chat.source.provider as Provider
                                   ),
                             }}
                           />

@@ -7,6 +7,7 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { AlertTriangle, ArrowDown, ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { ChatMessage } from "@/features/chat/components/ChatMessage";
@@ -36,7 +37,7 @@ export function ChatClient() {
         api: "/api/chat",
         body: { model: selectedModel },
       }),
-    [selectedModel],
+    [selectedModel]
   );
 
   // AI chat hook - new v5 API
@@ -91,7 +92,7 @@ export function ChatClient() {
         content: msg.parts
           .filter(
             (part): part is { type: "text"; text: string } =>
-              part.type === "text",
+              part.type === "text"
           )
           .map((part) => part.text)
           .join(""),
@@ -150,7 +151,6 @@ export function ChatClient() {
     };
   }, [displayMessages.length]);
 
-
   const isLoading = status === "submitted" || status === "streaming";
   const isStreaming = status === "streaming";
 
@@ -159,11 +159,21 @@ export function ChatClient() {
     lastSavedAssistantIdRef.current = null;
 
     // First, persist user message to Convex
-    await addMessage({
-      chatId,
-      role: "user",
-      content,
-    });
+    try {
+      await addMessage({
+        chatId,
+        role: "user",
+        content,
+      });
+    } catch (err: unknown) {
+      const data = (err as { data?: { code?: string; message?: string } })
+        ?.data;
+      if (data?.code === "RATE_LIMIT_RPM" || data?.code === "RATE_LIMIT_RPD") {
+        toast.error(data.message ?? "Rate limit reached. Please try again.");
+        return;
+      }
+      throw err;
+    }
 
     // Send to AI
     sendMessage({
@@ -190,7 +200,7 @@ export function ChatClient() {
 
     const content = lastMessage.parts
       .filter(
-        (part): part is { type: "text"; text: string } => part.type === "text",
+        (part): part is { type: "text"; text: string } => part.type === "text"
       )
       .map((part) => part.text)
       .join("");
