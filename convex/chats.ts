@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 
 export const createChat = mutation({
   args: {
@@ -77,6 +77,21 @@ export const createChat = mutation({
         order: i,
         metadata: {
           isImported: true,
+        },
+      });
+    }
+
+    if (args.importMethod === "automatic") {
+      await ctx.db.insert("messages", {
+        chatId,
+        ownerId: user._id,
+        role: "assistant",
+        content:
+          "I imported the conversation. What would you like to do next? You can ask me to summarize it, extract action items, or continue where it left off.",
+        createdAt: now,
+        order: args.messages.length,
+        metadata: {
+          isImported: false,
         },
       });
     }
@@ -309,7 +324,7 @@ export const searchChats = query({
     // 3. Build chat data with content for post-filtering
     const chatData = new Map<
       Id<"chats">,
-      { chat: unknown; score: number; matchedContent: string[] }
+      { chat: Doc<"chats"> | null; score: number; matchedContent: string[] }
     >();
 
     // Process title matches - require at least 50% of search words match
@@ -377,10 +392,7 @@ export const searchChats = query({
 
     // 4. Fetch missing chat objects
     const chatIdsToFetch = Array.from(chatData.entries())
-      .filter(([id, data]) => {
-        void id;
-        return data.chat === null;
-      })
+      .filter(([, data]) => data.chat === null)
       .map(([id]) => id);
 
     const fetchedChats = await Promise.all(
@@ -406,7 +418,13 @@ export const searchChats = query({
 
     // 5. Final sort and return
     const finalResults = Array.from(chatData.values())
-      .filter((data) => data.chat !== null)
+      .filter(
+        (data): data is {
+          chat: Doc<"chats">;
+          score: number;
+          matchedContent: string[];
+        } => data.chat !== null,
+      )
       .sort((a, b) => b.score - a.score)
       .map((data) => data.chat);
 
