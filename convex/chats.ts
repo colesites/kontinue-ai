@@ -1,5 +1,6 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 
 export const createChat = mutation({
   args: {
@@ -30,16 +31,22 @@ export const createChat = mutation({
     }
 
     // Feature gating: Limit free users to 10 chats
-    if (user.plan !== "pro") {
-      const chatCount = await ctx.db
+    if (args.importMethod === "automatic" && user.plan !== "pro") {
+      const chats = await ctx.db
         .query("chats")
         .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
         .collect();
 
-      if (chatCount.length >= 10) {
-        throw new Error(
-          "Free tier limit reached (10 chats). Please upgrade to Pro to continue importing.",
-        );
+      const importedChatsCount = chats.filter(
+        (c) => c.source?.importMethod === "automatic",
+      ).length;
+
+      if (importedChatsCount >= 10) {
+        throw new ConvexError({
+          code: "FREE_TIER_IMPORT_LIMIT",
+          message:
+            "Free tier limit reached (10 imports). Please upgrade to Pro to continue importing.",
+        });
       }
     }
 
@@ -301,8 +308,8 @@ export const searchChats = query({
 
     // 3. Build chat data with content for post-filtering
     const chatData = new Map<
-      string,
-      { chat: any; score: number; matchedContent: string[] }
+      Id<"chats">,
+      { chat: unknown; score: number; matchedContent: string[] }
     >();
 
     // Process title matches - require at least 50% of search words match
@@ -370,13 +377,16 @@ export const searchChats = query({
 
     // 4. Fetch missing chat objects
     const chatIdsToFetch = Array.from(chatData.entries())
-      .filter(([_, data]) => data.chat === null)
+      .filter(([id, data]) => {
+        void id;
+        return data.chat === null;
+      })
       .map(([id]) => id);
 
     const fetchedChats = await Promise.all(
       chatIdsToFetch.map((id) => {
         try {
-          return ctx.db.get(id as any);
+          return ctx.db.get(id);
         } catch {
           return null;
         }

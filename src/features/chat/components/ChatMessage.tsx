@@ -2,7 +2,7 @@
 
 import { cn } from "@/utils/cn";
 import { Copy, Check } from "lucide-react";
-import { useState, memo } from "react";
+import { useState } from "react";
 import type { ChatMessageProps } from "@/features/chat/types";
 import { MessageContent } from "./MessageContent";
 
@@ -30,8 +30,8 @@ export function ChatMessage({
     >
       <div
         className={cn(
-          "group w-[900px] max-w-[92%] sm:max-w-[85%]",
-          isUser && "ml-auto",
+          "group max-w-[92%] sm:max-w-[85%]",
+          isUser ? "ml-auto w-fit" : "w-full"
         )}
       >
         {/* Bubble */}
@@ -41,7 +41,7 @@ export function ChatMessage({
             "shadow-sm shadow-black/20",
             isUser
               ? "bg-primary/10 border-primary/20"
-              : "bg-muted border-border",
+              : "bg-muted border-border"
           )}
         >
           <div
@@ -60,7 +60,7 @@ export function ChatMessage({
               "prose-hr:my-4 prose-hr:border-border",
               "prose-strong:font-bold prose-strong:text-foreground",
               "prose-em:italic",
-              "prose-code:text-sm prose-code:bg-muted/50 prose-code:px-1 prose-code:rounded prose-code:font-medium", // Customizing inline code size
+              "prose-code:text-sm prose-code:bg-muted/50 prose-code:px-1 prose-code:rounded prose-code:font-medium" // Customizing inline code size
             )}
           >
             <MessageContent content={content} isStreaming={isStreaming} />
@@ -73,7 +73,7 @@ export function ChatMessage({
             className={cn(
               "mt-2 flex items-center gap-2 text-xs text-muted-foreground transition-opacity",
               "opacity-60 group-hover:opacity-100",
-              isUser && "justify-end",
+              isUser && "justify-end"
             )}
           >
             <button
@@ -103,4 +103,3 @@ export function ChatMessage({
     </div>
   );
 }
-

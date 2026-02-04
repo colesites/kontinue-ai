@@ -28,8 +28,6 @@ import {
 } from "@/components/ai-elements/model-selector";
 import { AVAILABLE_MODELS, getModelById } from "@/lib/models";
 
-
-
 export function ImportForm() {
   const router = useRouter();
   const {
@@ -95,8 +93,12 @@ export function ImportForm() {
       setUrl("");
       router.push(`/chat/${chatId}`);
     } catch (err: unknown) {
+      const data = (err as { data?: { message?: string } })?.data;
+      const message =
+        data?.message ||
+        (err instanceof Error ? err.message : "Failed to start chat");
       console.error("Start chat error:", err);
-      toast.error(err instanceof Error ? err.message : "Failed to start chat");
+      toast.error(message);
     } finally {
       setIsStartingBlank(false);
     }
@@ -124,7 +126,7 @@ export function ImportForm() {
 
       if (!result.messages || result.messages.length === 0) {
         throw new Error(
-          "Could not extract chat messages from this link. The page may not be a valid shared chat or the format is not recognized.",
+          "Could not extract chat messages from this link. The page may not be a valid shared chat or the format is not recognized."
         );
       }
 
@@ -137,7 +139,7 @@ export function ImportForm() {
           (m: { role: string; content: string }) => ({
             role: m.role as "user" | "assistant" | "system",
             content: m.content,
-          }),
+          })
         ),
       });
 
@@ -145,9 +147,15 @@ export function ImportForm() {
       setUrl("");
       router.push(`/chat/${chatId}`);
     } catch (err: unknown) {
-      console.error("Import error:", err);
+      const data = (err as { data?: { code?: string; message?: string } })
+        ?.data;
       const message =
-        err instanceof Error ? err.message : "Failed to import chat";
+        data?.message ||
+        (err instanceof Error ? err.message : "Failed to import chat");
+
+      if (data?.code !== "FREE_TIER_IMPORT_LIMIT") {
+        console.error("Import error:", err);
+      }
       importError(message);
       toast.error(message);
     }
@@ -182,7 +190,7 @@ export function ImportForm() {
                 "w-full pl-12 pr-4 py-4 rounded-xl bg-background border text-foreground placeholder:text-muted-foreground placeholder:text-xs focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all",
                 provider && provider !== "unknown"
                   ? "border-primary/50"
-                  : "border-input",
+                  : "border-input"
               )}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !isProcessing) {
@@ -219,7 +227,7 @@ export function ImportForm() {
             "w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-semibold transition-all shadow-lg",
             !isProcessing
               ? "bg-primary hover:bg-primary/90 text-primary-foreground"
-              : "bg-muted text-muted-foreground cursor-not-allowed",
+              : "bg-muted text-muted-foreground cursor-not-allowed"
           )}
         >
           {isProcessing ? (
