@@ -40,7 +40,15 @@ export const ModelSelectorContent = ({
   title = "Model Selector",
   ...props
 }: ModelSelectorContentProps) => (
-  <DialogContent className={cn("p-0", className)} {...props}>
+  <DialogContent
+    className={cn("p-0", className)}
+    {...props}
+    onOpenAutoFocus={(e) => {
+      props.onOpenAutoFocus?.(e);
+      if (e.defaultPrevented) return;
+      e.preventDefault();
+    }}
+  >
     <DialogTitle className="sr-only">{title}</DialogTitle>
     <Command className="**:data-[slot=command-input-wrapper]:h-auto">
       {children}
