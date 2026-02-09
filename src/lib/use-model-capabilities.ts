@@ -47,7 +47,9 @@ export function useModelCapabilities() {
     () => ({
       getCapabilities: (modelId: string) => capabilitiesById[modelId] ?? [],
       isPremium: (modelId: string) =>
-        ALWAYS_FREE_MODEL_IDS.has(modelId) ? false : premiumById[modelId] ?? false,
+        ALWAYS_FREE_MODEL_IDS.has(modelId)
+          ? false
+          : premiumById[modelId] ?? true,
       capabilitiesById,
       premiumById,
     }),

@@ -325,7 +325,10 @@ function ModelSelectorWrapper({
         <ModelSelectorList>
           <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
           {Object.entries(groupedModels).map(([provider, models]) => (
-            <ModelSelectorGroup heading={provider} key={provider}>
+            <ModelSelectorGroup key={provider}>
+              <div className="px-2 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                {provider}
+              </div>
               {models.map((m) =>
                 (() => {
                   const premium = isPremium(m.id);

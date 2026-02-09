@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
 import { Toaster } from "sonner";
 import { Providers } from "./providers";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -36,12 +37,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <body className="antialiased bg-background text-foreground">
-        <Suspense fallback={<LoadingFallback />}>
-          <Providers>{children}</Providers>
-        </Suspense>
-        <Toaster richColors theme="dark" />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <Suspense fallback={<LoadingFallback />}>
+            <Providers>{children}</Providers>
+          </Suspense>
+          <Toaster richColors theme="system" />
+        </ThemeProvider>
       </body>
     </html>
   );

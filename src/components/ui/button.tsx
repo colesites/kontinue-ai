@@ -2,11 +2,10 @@ import * as React from "react";
 
 import { cn } from "@/utils/cn";
 
-type ButtonVariant = "default" | "secondary" | "ghost";
+type ButtonVariant = "default" | "secondary" | "ghost" | "outline";
 type ButtonSize = "default" | "sm" | "icon";
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
 }
@@ -18,10 +17,13 @@ const base =
 
 const variants: Record<ButtonVariant, string> = {
   default:
-    "bg-indigo-600 text-white hover:bg-indigo-500 active:bg-indigo-600/90",
+    "bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[color-mix(in_oklab,var(--primary)_92%,black_8%)] active:bg-[color-mix(in_oklab,var(--primary)_88%,black_12%)]",
   secondary:
-    "bg-zinc-800 text-zinc-100 hover:bg-zinc-700 active:bg-zinc-800/90",
-  ghost: "bg-transparent text-zinc-200 hover:bg-zinc-800/60",
+    "bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:bg-[color-mix(in_oklab,var(--secondary)_94%,black_6%)] active:bg-[color-mix(in_oklab,var(--secondary)_90%,black_10%)]",
+  ghost:
+    "bg-transparent text-[var(--muted-foreground)] hover:bg-[color-mix(in_oklab,var(--muted)_14%,transparent_86%)]",
+  outline:
+    "border border-[var(--border)] text-[var(--foreground)] hover:bg-[color-mix(in_oklab,var(--muted)_14%,transparent_86%)]",
 };
 
 const sizes: Record<ButtonSize, string> = {
@@ -42,5 +44,3 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   }
 );
 Button.displayName = "Button";
-
-
