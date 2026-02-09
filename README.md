@@ -1,6 +1,6 @@
 # Continue AI
 
-Continue your AI conversations from any platform. Import shared chat links from ChatGPT, Gemini, Claude, Perplexity, or Grok, and pick up where you left off.
+Continue your AI conversations from any platform. Import shared chat links from ChatGPT, Gemini, Claude, or Perplexity, and pick up where you left off.
 
 ## Features
 
@@ -150,7 +150,6 @@ convex/                     # Convex backend
 - **Gemini** - gemini.google.com/share/*
 - **Claude** - claude.ai/share/*
 - **Perplexity** - perplexity.ai/search/*
-- **Grok** - grok.x.ai/share/*
 - **Generic** - Fallback parser for unknown providers
 
 ## Notes

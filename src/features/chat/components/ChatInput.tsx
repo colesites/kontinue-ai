@@ -22,10 +22,13 @@ import {
   PromptInputTools,
   PromptInputProvider,
 } from "@/components/ai-elements/prompt-input";
-import { Button } from "@/components/ui/button";
 import { CheckIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import { AVAILABLE_MODELS } from "@/lib/models";
+import { useModelCapabilities } from "@/lib/use-model-capabilities";
+import { ModelCapabilityIcons } from "@/components/ai-elements/model-capability-icons";
+import { useIsProPlan } from "@/lib/use-is-pro-plan";
+import { PremiumModelBadge } from "@/components/ai-elements/premium-model-badge";
 import type { ChatInputProps } from "@/features/chat/types";
 
 export function ChatInput({
@@ -38,6 +41,8 @@ export function ChatInput({
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { getCapabilities, isPremium } = useModelCapabilities();
+  const isPro = useIsProPlan();
 
   const handleSubmit = () => {
     if (!inputValue.trim()) return;
@@ -52,7 +57,7 @@ export function ChatInput({
       acc[m.provider].push(m);
       return acc;
     },
-    {} as Record<string, typeof AVAILABLE_MODELS>
+    {} as Record<string, typeof AVAILABLE_MODELS>,
   );
 
   const selectedModelData = AVAILABLE_MODELS.find((m) => m.id === model);
@@ -86,6 +91,13 @@ export function ChatInput({
                         <ModelSelectorName>
                           {selectedModelData.name}
                         </ModelSelectorName>
+                        {isPremium(selectedModelData.id) && (
+                          <PremiumModelBadge className="ml-1" />
+                        )}
+                        <ModelCapabilityIcons
+                          className="ml-1"
+                          capabilities={getCapabilities(selectedModelData.id)}
+                        />
                       </>
                     )}
                   </PromptInputButton>
@@ -96,22 +108,36 @@ export function ChatInput({
                     <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
                     {Object.entries(groupedModels).map(([provider, models]) => (
                       <ModelSelectorGroup heading={provider} key={provider}>
-                        {models.map((m) => (
-                          <ModelSelectorItem
-                            key={m.id}
-                            onSelect={() => {
-                              onModelChange(m.id);
-                              setModelSelectorOpen(false);
-                            }}
-                            value={m.name}
-                          >
-                            <ModelSelectorLogo provider={m.provider} />
-                            <ModelSelectorName>{m.name}</ModelSelectorName>
-                            {model === m.id && (
-                              <CheckIcon className="ml-auto size-4" />
-                            )}
-                          </ModelSelectorItem>
-                        ))}
+                        {models.map((m) =>
+                          (() => {
+                            const premium = isPremium(m.id);
+                            const disabledByPlan = premium && !isPro;
+
+                            return (
+                              <ModelSelectorItem
+                                key={m.id}
+                                disabled={disabledByPlan}
+                                onSelect={() => {
+                                  if (disabledByPlan) return;
+                                  onModelChange(m.id);
+                                  setModelSelectorOpen(false);
+                                }}
+                                value={m.name}
+                              >
+                                <ModelSelectorLogo provider={m.provider} />
+                                <ModelSelectorName>{m.name}</ModelSelectorName>
+                                {premium && <PremiumModelBadge />}
+                                <ModelCapabilityIcons
+                                  className="mr-2"
+                                  capabilities={getCapabilities(m.id)}
+                                />
+                                {model === m.id && (
+                                  <CheckIcon className="ml-auto size-4" />
+                                )}
+                              </ModelSelectorItem>
+                            );
+                          })(),
+                        )}
                       </ModelSelectorGroup>
                     ))}
                   </ModelSelectorList>

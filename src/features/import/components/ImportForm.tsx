@@ -27,6 +27,10 @@ import {
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector";
 import { AVAILABLE_MODELS, getModelById } from "@/lib/models";
+import { useModelCapabilities } from "@/lib/use-model-capabilities";
+import { ModelCapabilityIcons } from "@/components/ai-elements/model-capability-icons";
+import { useIsProPlan } from "@/lib/use-is-pro-plan";
+import { PremiumModelBadge } from "@/components/ai-elements/premium-model-badge";
 
 export function ImportForm() {
   const router = useRouter();
@@ -77,6 +81,12 @@ export function ImportForm() {
         openai: "chatgpt",
         anthropic: "claude",
         google: "gemini",
+        deepseek: "unknown",
+        minimax: "unknown",
+        mistral: "mistral",
+        perplexity: "perplexity",
+        zai: "unknown",
+        alibaba: "unknown",
       };
 
       const chatProvider = modelData
@@ -126,7 +136,7 @@ export function ImportForm() {
 
       if (!result.messages || result.messages.length === 0) {
         throw new Error(
-          "Could not extract chat messages from this link. The page may not be a valid shared chat or the format is not recognized."
+          "Could not extract chat messages from this link. The page may not be a valid shared chat or the format is not recognized.",
         );
       }
 
@@ -139,13 +149,13 @@ export function ImportForm() {
           (m: { role: string; content: string }) => ({
             role: m.role as "user" | "assistant" | "system",
             content: m.content,
-          })
+          }),
         ),
       });
 
       importSuccess(chatId);
       setUrl("");
-      router.push(`/chat/${chatId}`);
+      router.push(`/chat/${chatId}?imported=true`);
     } catch (err: unknown) {
       const data = (err as { data?: { code?: string; message?: string } })
         ?.data;
@@ -190,7 +200,7 @@ export function ImportForm() {
                 "w-full pl-12 pr-4 py-4 rounded-xl bg-background border text-foreground placeholder:text-muted-foreground placeholder:text-xs focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all",
                 provider && provider !== "unknown"
                   ? "border-primary/50"
-                  : "border-input"
+                  : "border-input",
               )}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !isProcessing) {
@@ -227,7 +237,7 @@ export function ImportForm() {
             "w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-semibold transition-all shadow-lg",
             !isProcessing
               ? "bg-primary hover:bg-primary/90 text-primary-foreground"
-              : "bg-muted text-muted-foreground cursor-not-allowed"
+              : "bg-muted text-muted-foreground cursor-not-allowed",
           )}
         >
           {isProcessing ? (
@@ -270,8 +280,10 @@ function ModelSelectorWrapper({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const { getCapabilities, isPremium } = useModelCapabilities();
+  const isPro = useIsProPlan();
   const selectedModelData = AVAILABLE_MODELS.find(
-    (m) => m.id === selectedModel
+    (m) => m.id === selectedModel,
   );
 
   const groupedModels = AVAILABLE_MODELS.reduce(
@@ -280,7 +292,7 @@ function ModelSelectorWrapper({
       acc[m.provider].push(m);
       return acc;
     },
-    {} as Record<string, typeof AVAILABLE_MODELS>
+    {} as Record<string, typeof AVAILABLE_MODELS>,
   );
 
   return (
@@ -299,6 +311,11 @@ function ModelSelectorWrapper({
               <span className="text-sm font-medium text-foreground truncate max-w-[80px]">
                 {selectedModelData.name}
               </span>
+              {isPremium(selectedModelData.id) && <PremiumModelBadge />}
+              <ModelCapabilityIcons
+                className="ml-1"
+                capabilities={getCapabilities(selectedModelData.id)}
+              />
             </>
           )}
         </button>
@@ -309,22 +326,36 @@ function ModelSelectorWrapper({
           <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
           {Object.entries(groupedModels).map(([provider, models]) => (
             <ModelSelectorGroup heading={provider} key={provider}>
-              {models.map((m) => (
-                <ModelSelectorItem
-                  key={m.id}
-                  onSelect={() => {
-                    onModelChange(m.id);
-                    setOpen(false);
-                  }}
-                  value={m.name}
-                >
-                  <ModelSelectorLogo provider={m.provider} />
-                  <ModelSelectorName>{m.name}</ModelSelectorName>
-                  {selectedModel === m.id && (
-                    <CheckIcon className="ml-auto size-4" />
-                  )}
-                </ModelSelectorItem>
-              ))}
+              {models.map((m) =>
+                (() => {
+                  const premium = isPremium(m.id);
+                  const disabledByPlan = premium && !isPro;
+
+                  return (
+                    <ModelSelectorItem
+                      key={m.id}
+                      disabled={disabledByPlan}
+                      onSelect={() => {
+                        if (disabledByPlan) return;
+                        onModelChange(m.id);
+                        setOpen(false);
+                      }}
+                      value={m.name}
+                    >
+                      <ModelSelectorLogo provider={m.provider} />
+                      <ModelSelectorName>{m.name}</ModelSelectorName>
+                      {premium && <PremiumModelBadge />}
+                      <ModelCapabilityIcons
+                        className="mr-2"
+                        capabilities={getCapabilities(m.id)}
+                      />
+                      {selectedModel === m.id && (
+                        <CheckIcon className="ml-auto size-4" />
+                      )}
+                    </ModelSelectorItem>
+                  );
+                })(),
+              )}
             </ModelSelectorGroup>
           ))}
         </ModelSelectorList>

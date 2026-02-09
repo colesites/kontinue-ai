@@ -65,11 +65,9 @@ export type Provider =
   | "chatgpt"
   | "claude"
   | "gemini"
-  | "grok"
   | "t3chat"
   | "perplexity"
   | "mistral"
-  | "deepseek"
   | "unknown";
 
 export function detectProvider(url: string): Provider {
@@ -91,10 +89,6 @@ export function detectProvider(url: string): Provider {
         hostname.includes("aistudio.google.com"):
         return "gemini";
 
-      case hostname.includes("grok.x.ai") ||
-        (hostname.includes("x.com") && path.includes("/i/grok")):
-        return "grok";
-
       case hostname.includes("t3chat.com"):
         return "t3chat";
 
@@ -103,9 +97,6 @@ export function detectProvider(url: string): Provider {
 
       case hostname.includes("mistral.ai"):
         return "mistral";
-
-      case hostname.includes("deepseek.com"):
-        return "deepseek";
 
       default:
         return "unknown";
@@ -120,11 +111,9 @@ export function getProviderDisplayName(provider: Provider): string {
     chatgpt: "ChatGPT",
     claude: "Claude",
     gemini: "Gemini",
-    grok: "Grok",
     t3chat: "T3Chat",
     perplexity: "Perplexity",
     mistral: "Mistral",
-    deepseek: "DeepSeek",
     unknown: "Unknown",
   };
   return names[provider];
@@ -135,11 +124,9 @@ export function getProviderColor(provider: Provider): string {
     chatgpt: "#10a37f",
     claude: "#cc785c",
     gemini: "#4285f4",
-    grok: "#ffffff",
     t3chat: "#f8e6f4",
     perplexity: "#20b8cd",
     mistral: "#ffffff",
-    deepseek: "#ffffff",
     unknown: "#6b7280",
   };
   return colors[provider];

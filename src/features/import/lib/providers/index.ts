@@ -2,7 +2,6 @@ import { chatgptParser } from "./chatgpt";
 import { geminiParser } from "./gemini";
 import { claudeParser } from "./claude";
 import { perplexityParser } from "./perplexity";
-import { grokParser } from "./grok";
 import { genericParser } from "./generic";
 import type { ProviderParser } from "./types";
 import type { NormalizedTranscript } from "../../types";
@@ -12,7 +11,6 @@ const parsers: ProviderParser[] = [
   geminiParser,
   claudeParser,
   perplexityParser,
-  grokParser,
   genericParser, // Must be last (fallback)
 ];
 
@@ -46,6 +44,12 @@ export async function importFromUrl(url: string): Promise<NormalizedTranscript> 
   }
 }
 
-export { chatgptParser, geminiParser, claudeParser, perplexityParser, grokParser, genericParser };
+export {
+  chatgptParser,
+  geminiParser,
+  claudeParser,
+  perplexityParser,
+  genericParser,
+};
 export type { ProviderParser };
 

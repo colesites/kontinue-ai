@@ -72,11 +72,9 @@ export default function ImportPage() {
                     <ProviderPill name="ChatGPT" color="#10a37f" />
                     <ProviderPill name="Claude" color="#cc785c" />
                     <ProviderPill name="Gemini" color="#4285f4" />
-                    <ProviderPill name="Grok" color="#ffffff" />
                     <ProviderPill name="T3 Chat" color="#f8e6f4" />
                     <ProviderPill name="Perplexity" color="#20b8cd" />
                     <ProviderPill name="Mistral" color="#ffffff" />
-                    <ProviderPill name="DeepSeek" color="#ffffff" />
                   </div>
                 </div>
               </div>

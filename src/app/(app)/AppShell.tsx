@@ -16,7 +16,13 @@ import {
 } from "@/components/ui/sidebar";
 import { cn } from "@/utils/cn";
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  defaultOpen = true,
+}: {
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
   const { user, isLoaded } = useUser();
   const { isLoaded: isAuthLoaded, has } = useAuth();
   const getOrCreateUser = useMutation(api.users.getOrCreateUser);
@@ -36,7 +42,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       const billingUser = user as unknown as UserWithBilling;
       const entitlements = billingUser.entitlements ?? [];
       const isProFromEntitlements = entitlements.some(
-        (e) => e.key === "pro" || e.name === "Pro"
+        (e) => e.key === "pro" || e.name === "Pro",
       );
 
       const planFromMetadata =
@@ -75,7 +81,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <SidebarProvider defaultOpen={false}>
+    <SidebarProvider defaultOpen={defaultOpen}>
       <ShellLayout>{children}</ShellLayout>
     </SidebarProvider>
   );

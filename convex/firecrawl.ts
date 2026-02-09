@@ -2,368 +2,146 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
+import { createGateway, gateway } from "@ai-sdk/gateway";
+import { generateText } from "ai";
 
 const FIRECRAWL_API_BASE = "https://api.firecrawl.dev/v1";
 
-/**
- * Parse markdown content from ChatGPT/Claude/Gemini shared pages
- * to extract conversation messages.
- * 
- * ChatGPT format uses:
- * ##### You said:
- * [user message content]
- * 
- * ###### ChatGPT said:
- * [assistant message content]
- */
-function parseConversationFromMarkdown(markdown: string): {
-  title: string | null;
+// ============================================================================
+// SYSTEM PROMPT FOR CHAT NORMALIZATION
+// ============================================================================
+
+const NORMALIZER_SYSTEM_PROMPT = `You are a strict chat transcript normalizer.
+Your goal is to extract ONLY the conversation between the User and the AI from a raw web scrape.
+
+INPUT: Raw markdown that may contain:
+- Headers (e.g., "Chat with Gemini", "Claude - My Chat")
+- Footers (copyright, terms, links)
+- UI Chrome (buttons like "Copy", "Regenerate", "Share", "Sign in")
+- Metadata (timestamps, model names)
+
+OUTPUT: A strict sequence of messages in this EXACT format:
+
+[USER]:
+<user message content>
+
+[ASSISTANT]:
+<ai response content>
+
+RULES:
+1.  **REMOVE ALL HEADERS & FOOTERS**: Delete anything that is not part of the actual conversation flow.
+2.  **REMOVE UI TEXT**: Delete "Copy code", "Regenerate response", "Share", "bad/good response" buttons text.
+3.  **STRICT ROLES**: 
+    - The person asking questions is [USER].
+    - The AI answering is [ASSISTANT].
+    - Look for specific markers like "You said:", "ChatGPT said:", "User:", "Assistant:", "Gemini:", "Perplexity:" to identify who is speaking.
+    - If markers are unclear, strictly alternate between [USER] and [ASSISTANT] starting with [USER].
+    - [USER] messages usually come first.
+    - [ASSISTANT] messages usually follow.
+4.  **PRESERVE CONTENT**: 
+    - Keep the actual message content (code blocks, markdown tables, bold text) EXACTLY as is. Do not summarize or rewrite.
+    - **IMAGES**: strictly PRESERVE all markdown images in the format ![alt](url). Do NOT remove them.
+    - **DIAGRAMS/CODE**: strictly PRESERVE all code blocks and diagrams (Mermaid, ASCII), even if they constitute the entire message.
+5.  **NO EXTRA TEXT**: Do not add "Here is the transcript" or "Summary:". Just the bracketed labels and content.
+6.  **CODE BLOCKS**: If there is code, keep it inside standard \`\`\` blocks. Do NOT put [USER] or [ASSISTANT] tags *inside* a code block. Ensure language tags (like \`\`\`mermaid\` or \`\`\`typescript\`) are preserved.
+
+EXAMPLE INPUT:
+"Chat with Claude
+User
+Hello there
+Claude
+Hi! How can I help?
+Copy
+Regenerate"
+
+EXAMPLE OUTPUT:
+[USER]:
+Hello there
+
+[ASSISTANT]:
+Hi! How can I help?
+`;
+
+// ============================================================================
+// LLM NORMALIZATION (ALL PROVIDERS)
+// ============================================================================
+
+function getLLMModel() {
+  const apiKey = process.env.AI_GATEWAY_TOKEN;
+  const gw = apiKey ? createGateway({ apiKey }) : null;
+  const modelId = "google/gemini-2.0-flash-001";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (gw ? gw(modelId) : gateway(modelId)) as any;
+}
+
+async function normalizeTranscriptWithLLM(markdown: string) {
+  const { text } = await generateText({
+    model: getLLMModel(),
+    system: NORMALIZER_SYSTEM_PROMPT,
+    messages: [
+      {
+        role: "user",
+        content: `Please normalize this transcript:\n\n${markdown}`,
+      },
+    ],
+    // @ts-ignore - explicitly supported by Vercel AI SDK even if types lag
+    maxTokens: 8192, // Increase output token limit to prevent truncation (Gemini supports long output)
+  });
+
+  return text.trim();
+}
+
+// ============================================================================
+// LLM TITLE SUMMARIZER (for Gemini/Perplexity - short summary not truncation)
+// ============================================================================
+
+async function generateShortTitle(firstMessage: string): Promise<string> {
+  const { text } = await generateText({
+    model: getLLMModel(),
+    system: `You generate very short chat titles (max 6 words). Respond with ONLY the title, no quotes or punctuation at the end.`,
+    messages: [
+      {
+        role: "user",
+        content: `Generate a short title for a chat that starts with this message:\n\n${firstMessage.slice(0, 500)}`,
+      },
+    ],
+  });
+
+  return text.trim().slice(0, 50);
+}
+
+// ============================================================================
+// PARSER
+// ============================================================================
+
+export function parseNormalizedTranscript(normalizedText: string): {
   messages: Array<{ role: "user" | "assistant"; content: string }>;
 } {
   const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
-  let title: string | null = null;
 
-  // Find the first "You said:" to strip header boilerplate
-  const firstUserIndex = markdown.search(/#{1,6}\s*You said:/i);
-  if (firstUserIndex === -1) {
-    // No conversation found
-    return { title, messages };
-  }
+  // Split by [USER]: or [ASSISTANT]: markers
+  // The regex captures the delimiter so we can identify the role
+  const parts = normalizedText.split(/(?:^|\n)(\[(?:USER|ASSISTANT)\]):\n/g);
 
-  // Find the last occurrence of common footer patterns to strip footer boilerplate
-  const footerPatterns = [
-    /ChatGPT can make mistakes/i,
-    /Check important info/i,
-    /Report conversation/i,
-    // ChatGPT UI elements that appear at the end
-    /^Attach$/m,
-    /^Search$/m,
-    /^Study$/m,
-    /^Create image$/m,
-    /^Voice$/m,
-  ];
-
-  let conversationEnd = markdown.length;
-  for (const pattern of footerPatterns) {
-    const match = markdown.search(pattern);
-    if (match !== -1 && match > firstUserIndex) {
-      // Find the start of the line containing this pattern
-      const lineStart = markdown.lastIndexOf("\n", match);
-      if (lineStart !== -1 && lineStart < conversationEnd) {
-        conversationEnd = lineStart;
-      }
-    }
-  }
-
-  // Extract just the conversation portion
-  const conversationText = markdown.slice(firstUserIndex, conversationEnd);
-
-  // Split by message markers
-  // ChatGPT uses: ##### You said: and ###### ChatGPT said:
-  // The pattern matches header markers followed by role indicators
-  const messagePattern =
-    /#{1,6}\s*(You said|ChatGPT said|Claude said|Gemini said|Assistant|User|Human):/gi;
-
-  const parts = conversationText.split(messagePattern);
-
-  // parts[0] is empty or content before first marker
-  // parts[1] is the role (You said, ChatGPT said, etc.)
-  // parts[2] is the content
-  // parts[3] is the next role, etc.
+  // parts[0] might be empty or pre-text (should be empty if LLM followed rules)
+  // parts[1] = marker, parts[2] = content, parts[3] = marker, parts[4] = content...
 
   for (let i = 1; i < parts.length; i += 2) {
-    const roleMarker = parts[i]?.toLowerCase().trim();
+    const roleMarker = parts[i];
     const content = parts[i + 1]?.trim();
 
     if (!roleMarker || !content) continue;
 
-    let role: "user" | "assistant";
-    if (
-      roleMarker.includes("you") ||
-      roleMarker === "user" ||
-      roleMarker === "human"
-    ) {
-      role = "user";
-    } else {
-      role = "assistant";
-    }
-
-    // Clean up the content
-    let cleanContent = content;
-
-    // Remove "Sources" section at the end of assistant messages
-    const sourcesIndex = cleanContent.search(/^Sources$/im);
-    if (sourcesIndex !== -1 && role === "assistant") {
-      cleanContent = cleanContent.slice(0, sourcesIndex).trim();
-    }
-
-    // Clean up ChatGPT code block artifacts
-    // ChatGPT adds language identifier and "Copy code" as text inside code blocks
-    // Pattern: ```lang\nlang\nCopy code\n...actual code...```
-    cleanContent = cleanContent.replace(
-      /```(\w+)\n\1\nCopy code\n/gi,
-      "```$1\n",
-    );
-    // Also handle case where it's just "lang\nCopy code" at start of code block
-    cleanContent = cleanContent.replace(
-      /```(\w+)\n\1 Copy code\n/gi,
-      "```$1\n",
-    );
-    // Handle standalone "Copy code" lines
-    cleanContent = cleanContent.replace(/^Copy code\n/gm, "");
-
-    if (cleanContent) {
-      messages.push({ role, content: cleanContent });
-    }
+    const role = roleMarker === "[USER]" ? "user" : "assistant";
+    messages.push({ role, content });
   }
 
-  // Try to extract title from first user message
-  const firstUserMessage = messages.find((m) => m.role === "user")?.content;
-  if (firstUserMessage) {
-    // Take first line or up to 60 chars
-    const firstLine = firstUserMessage.split("\n")[0].trim();
-    title = firstLine.length > 50 ? firstLine.slice(0, 50) + "..." : firstLine;
-  }
-
-  return { title, messages };
+  return { messages };
 }
 
-/**
- * Check if URL is a Gemini shared link
- */
-function isGeminiUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.hostname.includes("gemini.google.com");
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Check if URL is a Claude shared link
- */
-function isClaudeUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.hostname.includes("claude.ai");
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Parse markdown content from Gemini shared pages using strict deterministic rules.
- * 
- * Algorithm:
- * 1. Normalize text (CRLF->LF, trim lines, collapse blank lines)
- * 2. Remove boilerplate using regex patterns
- * 3. Split into blocks using double newlines
- * 4. Score each block for "assistant" vs "user" traits
- * 5. Apply alternation guard
- */
-export function parseGeminiFromMarkdown(markdown: string): {
-  title: string | null;
-  messages: Array<{ role: "user" | "assistant"; content: string }>;
-} {
-  const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
-  let title: string | null = null;
-
-  // 1) Normalize text
-  let normalized = markdown
-    .replace(/\r\n/g, "\n") // Convert CRLF to LF
-    .replace(/[ \t]+$/gm, "") // Trim trailing spaces
-    .replace(/\n{3,}/g, "\n\n"); // Collapse 3+ blank lines to 2
-  
-  // MERGE rules: Collapse blank lines before a bullet point so lists stay attached to previous text
-  normalized = normalized.replace(/\n{2,}([-*]\s+)/g, "\n$1");
-
-  // Extract title from H1 (# **Title**) or just # Title before stripping boilerplate
-  // Regex allows for optional markdown bold/italic markers
-  const titleMatch = normalized.match(/^#\s+(?:[*_]{2})?(.+?)(?:[*_]{2})?\s*$/m);
-  if (titleMatch) {
-    title = titleMatch[1].trim();
-  }
-
-  // 2) Remove boilerplate blocks
-  const boilerplatePatterns = [
-    /^\[Sign in\]\(https?:\/\/accounts\.google\.com\/.*\)$/im,
-    /^\[Gemini\]\(https?:\/\/gemini\.google\.com\/app\)$/im,
-    /^\[About Gemini.*$/im,
-    /^\[Gemini App.*$/im,
-    /^\[Subscriptions.*$/im,
-    /^\[For Business.*$/im,
-    /^#\s+\*\*.*\*\*\s*$/m, // Title line
-    /^https?:\/\/gemini\.google\.com\/share\/\S+$/m, // Share link (plain)
-    /^\[https?:\/\/gemini\.google\.com\/share\/.*$/m, // Share link (markdown)
-    /^Created with .*$/m,
-    /^Published .*$/m,
-    /^\[Google Privacy Policy.*$/im,
-    /^\[Google Terms of Service.*$/im,
-    /^Gemini may display inaccurate info.*$/im,
-    /^Sign in$/m,
-    /^Copy public link$/m,
-    /^Report$/m,
-  ];
-
-  for (const pattern of boilerplatePatterns) {
-    // Replace valid boilerplate lines with empty string
-    // We use a loop to handle multiple occurrences if necessary, though most appear once
-    // Using split/join or replaceAll is safer for global removal if strict global flag isn't used in regex
-    // The user patterns provided have ^, so they match lines.
-    // We'll iterate and remove all matching lines.
-    const lines = normalized.split("\n");
-    const filteredLines = lines.filter((line) => {
-      for (const p of boilerplatePatterns) {
-        if (p.test(line)) return false;
-      }
-      return true;
-    });
-    normalized = filteredLines.join("\n");
-  }
-
-  // Re-normalize after stripping lines to ensure clean blocks
-  normalized = normalized.replace(/\n{3,}/g, "\n\n").trim();
-
-  // 3) Split into message "blocks"
-  // Use 2+ newlines as a separator
-  const blocks = normalized.split(/\n{2,}/).filter((b) => b.trim().length > 0);
-
-  if (blocks.length === 0) {
-    return { title, messages };
-  }
-
-  // 4) Classify each block with deterministic scoring
-  const scoredBlocks = blocks.map((block) => {
-    let assistantScore = 0;
-    let userScore = 0;
-
-    // assistantScore rules
-    if (/(How can I help|I can assist|Would you like|Here are|Here's|Sure|Loud and clear)/i.test(block)) {
-      assistantScore += 6;
-    }
-    if (/^[-*]\s+/m.test(block)) {
-      assistantScore += 4;
-    }
-    if (/\*\*[^*]+\*\*/.test(block)) {
-      assistantScore += 2;
-    }
-    if (block.length > 160) {
-      assistantScore += 2;
-    }
-    const sentenceEndings = (block.match(/[.!?](\s|$)/g) || []).length;
-    if (sentenceEndings >= 2) {
-      assistantScore += 2;
-    }
-
-    // userScore rules
-    if (block.length <= 80) {
-      userScore += 3;
-    }
-    // Check if NOT a bullet list (no line starts with - or *)
-    if (!/^[-*]\s+/m.test(block)) {
-      userScore += 1;
-    }
-    // Check if NOT bold markdown
-    if (!/\*\*[^*]+\*\*/.test(block)) {
-      userScore += 1;
-    }
-    // Check if single line
-    if (!block.includes("\n")) {
-      userScore += 1;
-    }
-
-    const role: "user" | "assistant" = assistantScore > userScore ? "assistant" : "user";
-    return { role, content: block, assistantScore, userScore };
-  });
-
-  // 5) Alternation guard
-  // Gemini chats typically alternate user -> assistant.
-  // We'll iterate and enforce alternation if scores are close.
-  // Assuming strict alternation is desirable: User -> Assistant -> User -> Assistant
-  // However, the user said "If two consecutive blocks end up with the same role".
-  
-  // We'll process from index 1
-  for (let i = 1; i < scoredBlocks.length; i++) {
-    const prev = scoredBlocks[i - 1];
-    const curr = scoredBlocks[i];
-
-    if (prev.role === curr.role) {
-      const scoreDiff = Math.abs(curr.assistantScore - curr.userScore);
-      // "If the score difference is small (<= 2), flip the current block's role"
-      if (scoreDiff <= 2) {
-        curr.role = curr.role === "user" ? "assistant" : "user";
-      }
-      // "If the difference is large, keep it." -> do nothing
-    }
-  }
-
-  // 6) Output
-  return {
-    title,
-    messages: scoredBlocks.map((b) => ({ role: b.role, content: b.content })),
-  };
-}
-
-/**
- * Parse markdown content from Claude shared pages.
- * 
- * Claude format:
- * - Disclaimer header: "This is a copy of a chat between Claude and Cole..."
- * - Messages separated by date lines (e.g. "Jan 31, 2026")
- * - Pattern: User Message -> Date -> AI Message -> Date -> User...
- */
-export function parseClaudeFromMarkdown(markdown: string): {
-  title: string | null;
-  messages: Array<{ role: "user" | "assistant"; content: string }>;
-} {
-  const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
-  
-  // 1) Normalize text
-  let normalized = markdown
-    .replace(/\r\n/g, "\n")
-    .replace(/[ \t]+$/gm, "")
-    .replace(/\n{3,}/g, "\n\n");
-
-  // 2) Strip Claude disclaimer boilerplate
-  // Matches "This is a copy... Report" block at the start
-  const disclaimerPattern = /^This is a copy of a chat between[\s\S]*Report\s*/i;
-  normalized = normalized.replace(disclaimerPattern, "");
-  
-  // 3) Split by Date lines
-  // We look for lines that look like dates "Jan 31, 2025" or "Oct 2, 2024"
-  // Assuming format: Month DD, YYYY
-  // Regex: ^[A-Z][a-z]{2} \d{1,2}, \d{4}$ on a separate line
-  
-  // We'll split the text by these date separators.
-  // The split result will be:
-  // [0]: User Message 1
-  // [1]: AI Message 1
-  // [2]: User Message 2
-  // ... and so on.
-  // Note: The split also consumes the date line itself.
-  
-  const dateSeparator = /\n+[A-Z][a-z]{2} \d{1,2}, \d{4}\n+/;
-  
-  const parts = normalized.split(dateSeparator).map(p => p.trim()).filter(p => p.length > 0);
-  
-  // 4) Assign roles
-  // Typically starts with User.
-  // We'll assume strict alternation: User -> AI -> User -> AI
-  
-  let isUser = true;
-  for (const part of parts) {
-    messages.push({
-      role: isUser ? "user" : "assistant",
-      content: part
-    });
-    isUser = !isUser;
-  }
-  
-  return { title: null, messages };
-}
-
-
+// ============================================================================
+// MAIN ACTION: SCRAPE URL
+// ============================================================================
 
 export const scrapeUrl = action({
   args: {
@@ -385,9 +163,8 @@ export const scrapeUrl = action({
     const requestBody = {
       url: args.url,
       formats: ["markdown"],
-      onlyMainContent: false, // Get everything including dynamically loaded content
-      waitFor: 5000, // Wait 5 seconds for JS to load chat content
-      mobile: false,
+      onlyMainContent: false, // We need the whole page to find the chat container usually, but let's try false to get everything then clean
+      waitFor: 3000,
     };
 
     const response = await fetch(`${FIRECRAWL_API_BASE}/scrape`, {
@@ -408,49 +185,71 @@ export const scrapeUrl = action({
           errorMessage = errorJson.error;
         }
       } catch {
-        if (errorBody) {
-          errorMessage = errorBody;
-        }
+        // ignore
       }
       throw new Error(errorMessage);
     }
 
     const result = await response.json();
-
     if (!result.success) {
       throw new Error(result.error || "Firecrawl scrape failed");
     }
 
     const markdown = result.data?.markdown || "";
-
     if (!markdown) {
       throw new Error("No content found on the page");
     }
 
-    // Parse the markdown to extract messages based on provider
-    let parsed;
-    if (isGeminiUrl(args.url)) {
-      parsed = parseGeminiFromMarkdown(markdown);
-    } else if (isClaudeUrl(args.url)) {
-      parsed = parseClaudeFromMarkdown(markdown);
-    } else {
-      parsed = parseConversationFromMarkdown(markdown);
+    // ========================================
+    // PROVIDER DETECTION
+    // ========================================
+    const urlLower = args.url.toLowerCase();
+    const isPerplexity = urlLower.includes("perplexity.ai");
+    const isGemini =
+      urlLower.includes("gemini.google.com") ||
+      urlLower.includes("aistudio.google.com");
+
+    // ========================================
+    // LLM NORMALIZATION (ALL PROVIDERS)
+    // ========================================
+    // User requested LLM normalization for all providers (including ChatGPT/T3) due to better quality
+    const normalizedText = await normalizeTranscriptWithLLM(markdown);
+    const { messages } = parseNormalizedTranscript(normalizedText);
+
+    if (messages.length === 0) {
+      throw new Error(
+        "Could not extract any messages from the page. The parsing might have failed.",
+      );
     }
 
-    // Determine title based on provider
+    // ========================================
+    // TITLE GENERATION
+    // ========================================
     let finalTitle: string | null = null;
 
-    if (isGeminiUrl(args.url)) {
-      // For Gemini, parsed title (H1) is better than generic metadata title
-      finalTitle = parsed.title || result.data?.metadata?.title || null;
+    if (isPerplexity || isGemini) {
+      // LLM-generated short summary title
+      if (messages.length > 0 && messages[0].role === "user") {
+        finalTitle = await generateShortTitle(messages[0].content);
+      } else {
+        finalTitle = isPerplexity
+          ? "Imported Perplexity Chat"
+          : "Imported Gemini Chat";
+      }
     } else {
-      // For ChatGPT/Claude/others, metadata title is usually better than parsed fallback
-      finalTitle = result.data?.metadata?.title || parsed.title || null;
+      // Use metadata title for ChatGPT/T3Chat/others
+      finalTitle = result.data?.metadata?.title || null;
+      if (!finalTitle && messages.length > 0 && messages[0].role === "user") {
+        const firstLine = messages[0].content.split("\n")[0].trim();
+        finalTitle =
+          firstLine.length > 50 ? firstLine.slice(0, 50) + "..." : firstLine;
+      }
     }
+
     return {
-      markdown,
+      markdown: normalizedText, // Return the clean version for debug
       title: finalTitle,
-      messages: parsed.messages,
+      messages: messages,
       metadata: result.data?.metadata || null,
     };
   },

@@ -42,3 +42,13 @@ next-env.d.ts
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# skills
+/.agent/
+/.agents/
+/.claude/
+/.cursor/
+/.kiro/
+/.trae/
+/.windsurf/
+/.zencoder/

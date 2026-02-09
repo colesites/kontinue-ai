@@ -81,20 +81,7 @@ export const createChat = mutation({
       });
     }
 
-    if (args.importMethod === "automatic") {
-      await ctx.db.insert("messages", {
-        chatId,
-        ownerId: user._id,
-        role: "assistant",
-        content:
-          "I imported the conversation. What would you like to do next? You can ask me to summarize it, extract action items, or continue where it left off.",
-        createdAt: now,
-        order: args.messages.length,
-        metadata: {
-          isImported: false,
-        },
-      });
-    }
+    // Fixed message removed in favor of dynamic client-side generation
 
     return chatId;
   }

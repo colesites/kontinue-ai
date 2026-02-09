@@ -56,7 +56,10 @@ export const perplexityParser: ProviderParser = {
       const regularScripts = $("script").toArray();
       for (const script of regularScripts) {
         const content = $(script).html();
-        if (content?.includes("__NEXT_DATA__") || content?.includes("messages")) {
+        if (
+          content?.includes("__NEXT_DATA__") ||
+          content?.includes("messages")
+        ) {
           try {
             const jsonMatch = content.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
@@ -87,23 +90,22 @@ export const perplexityParser: ProviderParser = {
         if (answerEls[i]) {
           const content = $(answerEls[i]).text().trim();
           if (content) {
-            messages.push({ role: "assistant", content, order: messages.length });
+            messages.push({
+              role: "assistant",
+              content,
+              order: messages.length,
+            });
           }
         }
       }
     }
 
-    // Extract title
-    let title = $("title").text().trim();
-    if (title.includes("Perplexity")) {
-      title = title.replace(/[-–]?\s*Perplexity\s*[-–]?/g, "").trim();
-    }
-    if (!title) {
-      title =
-        messages.length > 0
-          ? messages[0].content.slice(0, 50) + "..."
-          : "Imported Perplexity Chat";
-    }
+    // Extract title from first message
+    const title =
+      messages.length > 0
+        ? messages[0].content.slice(0, 50) +
+          (messages[0].content.length > 50 ? "..." : "")
+        : "Imported Perplexity Chat";
 
     return {
       provider: "perplexity",

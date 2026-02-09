@@ -31,8 +31,17 @@ export const MessageContent = memo(function MessageContent({
             const isCodeBlock =
               className?.includes("language-") || className?.includes("hljs");
 
+            // If it has a language, definitely a code block
             if (isCodeBlock) {
               return <CodeBlock className={className}>{children}</CodeBlock>;
+            }
+
+            // If no language, check if content has newlines - if so, treat as block
+            const contentString = String(children);
+            if (contentString.includes("\n")) {
+              return (
+                <CodeBlock className="language-text">{children}</CodeBlock>
+              );
             }
 
             // Inline code

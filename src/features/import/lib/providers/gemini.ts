@@ -45,10 +45,15 @@ export const geminiParser: ProviderParser = {
     const scripts = $("script").toArray();
     for (const script of scripts) {
       const content = $(script).html();
-      if (content?.includes("conversation") || content?.includes("AF_initDataCallback")) {
+      if (
+        content?.includes("conversation") ||
+        content?.includes("AF_initDataCallback")
+      ) {
         try {
           // Gemini embeds data in AF_initDataCallback calls
-          const dataMatch = content.match(/AF_initDataCallback\(\{[\s\S]*?\}\);/g);
+          const dataMatch = content.match(
+            /AF_initDataCallback\(\{[\s\S]*?\}\);/g,
+          );
           if (dataMatch) {
             for (const match of dataMatch) {
               try {
@@ -72,14 +77,19 @@ export const geminiParser: ProviderParser = {
     // Fallback: DOM parsing for Gemini's structure
     if (messages.length === 0) {
       // Gemini uses specific container elements
-      const turns = $('[class*="conversation-turn"], [class*="message-row"]').toArray();
+      const turns = $(
+        '[class*="conversation-turn"], [class*="message-row"]',
+      ).toArray();
 
       turns.forEach((el, i) => {
         const $el = $(el);
         const isUser =
           $el.attr("class")?.includes("user") ||
           $el.find('[class*="user"]').length > 0;
-        const content = $el.find('[class*="text-content"], [class*="message-content"]').text().trim();
+        const content = $el
+          .find('[class*="text-content"], [class*="message-content"]')
+          .text()
+          .trim();
 
         if (content) {
           messages.push({
@@ -91,17 +101,12 @@ export const geminiParser: ProviderParser = {
       });
     }
 
-    // Extract title
-    let title = $("title").text().trim();
-    if (title.includes("Gemini")) {
-      title = title.replace(/[-–]?\s*Gemini\s*[-–]?/g, "").trim();
-    }
-    if (!title) {
-      title =
-        messages.length > 0
-          ? messages[0].content.slice(0, 50) + "..."
-          : "Imported Gemini Chat";
-    }
+    // Extract title from first message
+    const title =
+      messages.length > 0
+        ? messages[0].content.slice(0, 50) +
+          (messages[0].content.length > 50 ? "..." : "")
+        : "Imported Gemini Chat";
 
     return {
       provider: "gemini",

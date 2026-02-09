@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
@@ -41,18 +41,52 @@ export function ChatClient() {
   );
 
   // AI chat hook - new v5 API
-  const {
-    messages: aiMessages,
-    sendMessage,
-    setMessages,
-    status,
-    error: chatError,
-  } = useChat({
+  const chatHelpers = useChat({
     transport,
     onError: (err) => {
       console.error("AI chat error:", err);
     },
   });
+
+  const { messages: aiMessages, status, error: chatError } = chatHelpers;
+
+  // Cast to any to access append if it exists (it should in v5, despite the type definition issue)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const append = (chatHelpers as any).append;
+  const sendMessage = chatHelpers.sendMessage;
+  const setMessages = chatHelpers.setMessages;
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const hasTriggeredImportRef = useRef(false);
+
+  useEffect(() => {
+    // Only trigger if specifically requested via URL param
+    if (searchParams.get("imported") === "true") {
+      // Prevent double-firing in Strict Mode or re-renders
+      if (hasTriggeredImportRef.current) return;
+      hasTriggeredImportRef.current = true;
+
+      // Remove the query param so it doesn't trigger again on reload
+      const newUrl = window.location.pathname;
+      router.replace(newUrl);
+
+      // Trigger the AI with a hidden system message
+      // We use a unique ID to filter this message out from the UI
+      if (typeof append === "function") {
+        setTimeout(() => {
+          append({
+            id: "import-trigger-" + Date.now(),
+            role: "system",
+            content:
+              "The user has just imported this conversation. Acknowledge the import briefly and ask the user what they would like to do next.",
+          });
+        }, 100);
+      } else {
+        console.warn("append function missing from useChat");
+      }
+    }
+  }, [searchParams, router, append]);
 
   // Seed the chat UI with messages from Convex so the conversation always renders,
   // and subsequent sendMessage() updates show up immediately even if Convex updates lag.
@@ -86,18 +120,20 @@ export function ChatClient() {
   const displayMessages = useMemo(() => {
     // Prefer AI SDK messages once available (includes optimistic new messages).
     if (aiMessages.length > 0) {
-      return aiMessages.map((msg) => ({
-        id: msg.id,
-        role: msg.role as "user" | "assistant",
-        content: msg.parts
-          .filter(
-            (part): part is { type: "text"; text: string } =>
-              part.type === "text"
-          )
-          .map((part) => part.text)
-          .join(""),
-        isImported: importedById[msg.id] ?? false,
-      }));
+      return aiMessages
+        .filter((msg) => !msg.id.startsWith("import-trigger-"))
+        .map((msg) => ({
+          id: msg.id,
+          role: msg.role as "user" | "assistant",
+          content: msg.parts
+            .filter(
+              (part): part is { type: "text"; text: string } =>
+                part.type === "text",
+            )
+            .map((part) => part.text)
+            .join(""),
+          isImported: importedById[msg.id] ?? false,
+        }));
     }
 
     // Fallback to DB messages before the hook is seeded/ready

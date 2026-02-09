@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { Loader2 } from "lucide-react";
 import { AppShell } from "./AppShell";
 
@@ -23,9 +24,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/sign-in");
   }
 
+  const cookieStore = await cookies();
+  const defaultOpen = cookieStore.get("sidebar_state")?.value === "true";
+
   return (
     <Suspense fallback={<LoadingFallback />}>
-      <AppShell>{children}</AppShell>
+      <AppShell defaultOpen={defaultOpen}>{children}</AppShell>
     </Suspense>
   );
 }

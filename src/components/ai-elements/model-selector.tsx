@@ -101,10 +101,7 @@ export const ModelSelectorSeparator = (props: ModelSelectorSeparatorProps) => (
   <CommandSeparator {...props} />
 );
 
-export type ModelSelectorLogoProps = Omit<
-  ComponentProps<"img">,
-  "src" | "alt"
-> & {
+export type ModelSelectorLogoProps = Omit<ComponentProps<"img">, "src" | "alt"> & {
   provider:
     | "moonshotai-cn"
     | "lucidquery"
@@ -120,7 +117,7 @@ export type ModelSelectorLogoProps = Omit<
     | "mistral"
     | "vercel"
     | "nebius"
-    | "deepseek"
+    | "nebius"
     | "alibaba-cn"
     | "google-vertex-anthropic"
     | "venice"

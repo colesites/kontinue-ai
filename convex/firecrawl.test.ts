@@ -1,68 +1,78 @@
-
 import { describe, expect, test } from "bun:test";
-import { parseGeminiFromMarkdown } from "./firecrawl";
+import { parseNormalizedTranscript } from "./firecrawl";
 
-const SAMPLE_INPUT = `[Sign in](https://accounts.google.com/ServiceLogin?passive=1209600&continue=https://gemini.google.com/share/ccad17bb0b9c&followup=https://gemini.google.com/share/ccad17bb0b9c&ec=GAZAkgU)
+describe("parseNormalizedTranscript", () => {
+  test("parses [USER]/[ASSISTANT] format correctly", () => {
+    const input = `[USER]:
+Hello, how are you?
 
-[Gemini](https://gemini.google.com/app)
+[ASSISTANT]:
+I am doing well! How can I help you today?
 
-[About Gemini Opens in a new window](https://gemini.google/about/?utm_source=gemini&utm_medium=web&utm_campaign=gemini_zero_state_link_to_marketing_microsite) [Gemini App Opens in a new window](https://gemini.google.com/app/download) [Subscriptions Opens in a new window](https://one.google.com/ai) [For Business Opens in a new window](https://workspace.google.com/solutions/ai/?utm_source=geminiforbusiness&utm_medium=et&utm_campaign=gemini-page-crosslink&utm_term=-&utm_content=forbusiness-2025Q3)
+[USER]:
+Write me a poem.`;
 
-# **Testing and Capabilities Offered**
+    const { messages } = parseNormalizedTranscript(input);
 
-[https://gemini.google.com/share/ccad17bb0b9c](https://gemini.google.com/share/ccad17bb0b9c)
+    expect(messages).toHaveLength(3);
 
-Created with **Fast** January 31, 2026 at 03:04 AM Published January 31, 2026 at 03:04 AM
+    expect(messages[0].role).toBe("user");
+    expect(messages[0].content).toBe("Hello, how are you?");
 
-testing
+    expect(messages[1].role).toBe("assistant");
+    expect(messages[1].content).toBe(
+      "I am doing well! How can I help you today?",
+    );
 
-Loud and clear! I'm up and running.
+    expect(messages[2].role).toBe("user");
+    expect(messages[2].content).toBe("Write me a poem.");
+  });
 
-How can I help you today? I can assist with things like:
+  test("handles code blocks inside messages", () => {
+    const input = `[USER]:
+Write some code
 
-- **Brainstorming** ideas for a project.
+[ASSISTANT]:
+Here is your code:
+\`\`\`javascript
+console.log("Hello");
+\`\`\`
+Hope it helps!`;
 
-- **Drafting or editing** emails and documents.
+    const { messages } = parseNormalizedTranscript(input);
 
-- **Generating images or videos** based on your descriptions.
+    expect(messages).toHaveLength(2);
+    expect(messages[1].role).toBe("assistant");
+    expect(messages[1].content).toContain("\`\`\`javascript");
+    expect(messages[1].content).toContain('console.log("Hello");');
+  });
 
-- **Explaining** complex topics or solving problems.
+  test("handles robustness: spacing and newlines", () => {
+    const input = `
+[USER]:
+  Trim me please  
 
+[ASSISTANT]:
+Okay!
+`;
+    const { messages } = parseNormalizedTranscript(input);
+    expect(messages).toHaveLength(2);
+    expect(messages[0].content).toBe("Trim me please");
+    expect(messages[1].content).toBe("Okay!");
+  });
 
-Would you like me to try generating a creative image for you to start things off?
-
-[Google Privacy Policy  Opens in a new window](https://policies.google.com/privacy) [Google Terms of Service  Opens in a new window](https://policies.google.com/terms) [Your privacy & Gemini Apps  Opens in a new window](https://support.google.com/gemini?p=privacy_notice)
-
-Gemini may display inaccurate info, including about people, so double-check its responses.
-
-Sign in
-
-Copy public link
-
-Report`;
-
-describe("Gemini Parser", () => {
-  test("correctly parses sample input", () => {
-    const result = parseGeminiFromMarkdown(SAMPLE_INPUT);
-
-    expect(result.title).toBe("Testing and Capabilities Offered");
-    expect(result.messages).toHaveLength(4);
-
-    expect(result.messages[0]).toEqual({
-      role: "user",
-      content: "testing",
-    });
-
-    expect(result.messages[1].role).toBe("assistant");
-    expect(result.messages[1].content).toContain("Loud and clear!");
-
-    expect(result.messages[2].role).toBe("assistant");
-    expect(result.messages[2].content).toContain("How can I help you today?");
-    expect(result.messages[2].content).toContain("- **Brainstorming** ideas");
-
-    expect(result.messages[3]).toEqual({
-      role: "assistant", // Logic from original test expected this to be assistant
-      content: "Would you like me to try generating a creative image for you to start things off?",
-    });
+  test("ignores broken or empty markers", () => {
+    const input = `
+Header text ignoring...
+[USER]:
+Valid content
+[BROKEN]:
+Ignored
+`;
+    // The parser expects strict [USER]:\n or [ASSISTANT]:\n
+    // If there is extra text at the top, it should be ignored if it's before the first marker.
+    const { messages } = parseNormalizedTranscript(input);
+    expect(messages).toHaveLength(1);
+    expect(messages[0].content).toBe("Valid content\n[BROKEN]:\nIgnored");
   });
 });
