@@ -42,7 +42,7 @@ export function AppShell({
       const billingUser = user as unknown as UserWithBilling;
       const entitlements = billingUser.entitlements ?? [];
       const isProFromEntitlements = entitlements.some(
-        (e) => e.key === "pro" || e.name === "Pro",
+        (e) => e.key === "pro" || e.name === "Pro"
       );
 
       const planFromMetadata =
@@ -124,13 +124,13 @@ function ShellLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <AppSidebar />
-      <SidebarInset className="bg-zinc-950 h-dvh flex flex-col overflow-hidden">
+      <SidebarInset className="bg-background h-dvh flex flex-col overflow-hidden">
         <div className="flex flex-1 flex-col min-h-0">
           <header className="sticky top-2 z-40 pl-2 pointer-events-none">
             <div className="flex h-12 items-center">
               <div
                 className={cn(
-                  "pointer-events-auto flex items-center gap-3 rounded-2xl border border-white/10 bg-black/60 p-1 text-white shadow-lg backdrop-blur",
+                  "pointer-events-auto flex items-center gap-3 rounded-2xl border border-white/10 bg-background p-1 text-white shadow-lg backdrop-blur",
                   hideTriggerGroup && "pointer-events-none opacity-0 scale-95"
                 )}
                 aria-hidden={hideTriggerGroup}

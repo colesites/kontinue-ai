@@ -128,7 +128,7 @@ export function ChatClient() {
           content: msg.parts
             .filter(
               (part): part is { type: "text"; text: string } =>
-                part.type === "text",
+                part.type === "text"
             )
             .map((part) => part.text)
             .join(""),
@@ -276,7 +276,7 @@ export function ChatClient() {
   }
 
   return (
-    <div className="relative flex min-h-full flex-col bg-zinc-950">
+    <div className="relative flex min-h-full flex-col bg-background">
       <div className="flex-1">
         <div className="mx-auto w-full max-w-4xl px-4 pb-[200px]">
           {!!chatError && (
