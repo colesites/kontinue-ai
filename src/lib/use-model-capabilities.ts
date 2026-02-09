@@ -7,6 +7,7 @@ import {
   fetchAiGatewayModels,
   type ModelCapability,
 } from "@/lib/model-capabilities";
+import { ALWAYS_FREE_MODEL_IDS } from "@/lib/models";
 
 export function useModelCapabilities() {
   const [capabilitiesById, setCapabilitiesById] = useState<
@@ -45,7 +46,8 @@ export function useModelCapabilities() {
   return useMemo(
     () => ({
       getCapabilities: (modelId: string) => capabilitiesById[modelId] ?? [],
-      isPremium: (modelId: string) => premiumById[modelId] ?? false,
+      isPremium: (modelId: string) =>
+        ALWAYS_FREE_MODEL_IDS.has(modelId) ? false : premiumById[modelId] ?? false,
       capabilitiesById,
       premiumById,
     }),

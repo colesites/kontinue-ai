@@ -5,7 +5,9 @@ import {
   type UIMessage,
   type LanguageModel,
 } from "ai";
-import { createGateway, gateway } from "@ai-sdk/gateway";
+import { createGateway } from "@ai-sdk/gateway";
+import { deriveIsPremium } from "@/lib/model-capabilities";
+import { ALWAYS_FREE_MODEL_IDS, FREE_DEFAULT_MODEL_ID } from "@/lib/models";
 
 type AiGatewayModel = {
   id: string;
@@ -34,26 +36,14 @@ async function getAiGatewayModelsCached(): Promise<AiGatewayModel[]> {
   return cachedModels;
 }
 
-function isPremiumModel(model: AiGatewayModel): boolean {
-  const tags = model.tags ?? [];
-  const pricing = model.pricing ?? {};
+async function getIsProUser(
+  clerkUserId: string,
+  hasPlan?: (args: { plan: string }) => boolean,
+): Promise<boolean> {
+  if (typeof hasPlan === "function" && hasPlan({ plan: "pro_plan" })) {
+    return true;
+  }
 
-  const hasImageGen = tags.includes("image-generation") ||
-    (pricing && typeof pricing === "object" && ("image" in pricing || "image_output" in pricing));
-  const hasThinking = tags.includes("reasoning");
-  const hasWebSearch =
-    pricing &&
-    typeof pricing === "object" &&
-    "web_search" in pricing &&
-    pricing.web_search !== null &&
-    String(pricing.web_search) !== "0";
-  const hasExplicitCaching =
-    pricing && typeof pricing === "object" && "input_cache_write" in pricing;
-
-  return hasImageGen || hasThinking || hasWebSearch || hasExplicitCaching;
-}
-
-async function getIsProUser(clerkUserId: string): Promise<boolean> {
   const client = await clerkClient();
   const user = await client.users.getUser(clerkUserId);
 
@@ -103,12 +93,19 @@ Formatting:
 export async function POST(req: Request) {
   try {
     // Verify authentication
-    const { userId } = await auth();
+    const authResult = await auth();
+    const userId = authResult.userId;
+    // `has` isn't always present in Clerk server typings, so access defensively.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const has = (authResult as any).has as undefined | ((args: { plan: string }) => boolean);
     if (!userId) {
       return new Response("Unauthorized", { status: 401 });
     }
 
-    const { messages, model: modelId = "openai/gpt-4o" }: { messages: UIMessage[]; model?: string } = await req.json();
+    const {
+      messages,
+      model: modelId = FREE_DEFAULT_MODEL_ID,
+    }: { messages: UIMessage[]; model?: string } = await req.json();
 
     const models = await getAiGatewayModelsCached();
     const requestedModel = models.find((m) => m.id === modelId);
@@ -116,8 +113,12 @@ export async function POST(req: Request) {
       return new Response("Unknown model", { status: 400 });
     }
 
-    const isPro = await getIsProUser(userId);
-    if (!isPro && isPremiumModel(requestedModel)) {
+    const isPro = await getIsProUser(
+      userId,
+      typeof has === "function" ? has : undefined
+    );
+    const isPremium = deriveIsPremium(requestedModel);
+    if (!isPro && isPremium && !ALWAYS_FREE_MODEL_IDS.has(modelId)) {
       return new Response("Pro plan required for this model", { status: 403 });
     }
 
@@ -126,11 +127,19 @@ export async function POST(req: Request) {
     const apiKey =
       process.env.AI_GATEWAY_API_KEY ?? process.env.AI_GATEWAY_TOKEN;
 
-    const gw = apiKey ? createGateway({ apiKey }) : null;
+    if (!apiKey) {
+      // Don't leak infra details to end users.
+      console.error("Chat API misconfigured: missing AI gateway credentials.");
+      return new Response("AI is not configured. Please try again later.", {
+        status: 500,
+      });
+    }
+
+    const gw = createGateway({ apiKey });
 
     // Format: "provider/model" e.g., "openai/gpt-4o", "anthropic/claude-3-5-sonnet", "google/gemini-2.0-flash"
     const result = streamText({
-      model: (gw ? gw(modelId) : gateway(modelId)) as unknown as LanguageModel,
+      model: gw(modelId) as unknown as LanguageModel,
       system: SYSTEM_PROMPT,
       messages: await convertToModelMessages(messages),
     });

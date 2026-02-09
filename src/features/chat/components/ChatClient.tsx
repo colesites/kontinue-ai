@@ -5,21 +5,29 @@ import { useQuery, useMutation } from "convex/react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import { AlertTriangle, ArrowDown, ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { ChatMessage } from "@/features/chat/components/ChatMessage";
 import { ChatInput } from "@/features/chat/components/ChatInput";
-import { getDefaultModel } from "@/lib/models";
+import { getDefaultModelForPlan } from "@/lib/models";
 import { useSidebar } from "@/components/ui/sidebar";
+import { useIsProPlan } from "@/lib/use-is-pro-plan";
 
 export function ChatClient() {
   const params = useParams();
   const chatId = params.chatId as Id<"chats">;
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [selectedModel, setSelectedModel] = useState(getDefaultModel().id);
+  const isPro = useIsProPlan();
+  const [userSelectedModel, setUserSelectedModel] = useState<string | null>(
+    null
+  );
+  const selectedModel = useMemo(
+    () => userSelectedModel ?? getDefaultModelForPlan(isPro).id,
+    [userSelectedModel, isPro]
+  );
   const [showScrollButton, setShowScrollButton] = useState(false);
   const lastSavedAssistantIdRef = useRef<string | null>(null);
   const hasSeededRef = useRef(false);
@@ -45,10 +53,28 @@ export function ChatClient() {
     transport,
     onError: (err) => {
       console.error("AI chat error:", err);
+      const message =
+        err instanceof Error ? err.message : "Something went wrong.";
+
+      if (/pro plan required/i.test(message) || /requires pro/i.test(message)) {
+        toast.error("This model requires Pro.", {
+          description: "Choose a free model or upgrade your plan.",
+        });
+        return;
+      }
+
+      if (/unauthorized/i.test(message) || /status\s*401/.test(message)) {
+        toast.error("You're not signed in.", {
+          description: "Please refresh and sign in again.",
+        });
+        return;
+      }
+
+      toast.error("AI didn’t respond.", { description: message });
     },
   });
 
-  const { messages: aiMessages, status, error: chatError } = chatHelpers;
+  const { messages: aiMessages, status } = chatHelpers;
 
   // Cast to any to access append if it exists (it should in v5, despite the type definition issue)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -191,6 +217,11 @@ export function ChatClient() {
   const isStreaming = status === "streaming";
 
   const handleSend = async (content: string) => {
+    // Lock the model for this chat session once the user sends their first message.
+    if (userSelectedModel === null) {
+      setUserSelectedModel(selectedModel);
+    }
+
     // Reset saved tracking for new stream
     lastSavedAssistantIdRef.current = null;
 
@@ -279,31 +310,6 @@ export function ChatClient() {
     <div className="relative flex min-h-full flex-col bg-background">
       <div className="flex-1">
         <div className="mx-auto w-full max-w-4xl px-4 pb-[200px]">
-          {!!chatError && (
-            <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-200">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="mt-0.5 shrink-0" size={18} />
-                <div className="min-w-0">
-                  <p className="font-semibold">AI didn’t respond</p>
-                  <p className="mt-1 text-sm text-amber-200/80 wrap-break-word">
-                    {chatError.message}
-                  </p>
-                  <p className="mt-2 text-xs text-amber-200/70">
-                    Set{" "}
-                    <code className="rounded border border-amber-500/20 bg-amber-500/10 px-1 py-0.5">
-                      AI_GATEWAY_API_KEY
-                    </code>{" "}
-                    (or{" "}
-                    <code className="rounded border border-amber-500/20 bg-amber-500/10 px-1 py-0.5">
-                      AI_GATEWAY_TOKEN
-                    </code>
-                    ) in your env and restart the dev server.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
           {displayMessages.map((message, index) => (
             <ChatMessage
               key={message.id}
@@ -368,9 +374,9 @@ export function ChatClient() {
           <ChatInput
             onSend={handleSend}
             isLoading={isLoading}
-            disabled={!!chatError}
+            disabled={false}
             model={selectedModel}
-            onModelChange={setSelectedModel}
+            onModelChange={(next) => setUserSelectedModel(next)}
           />
         </div>
       </div>
