@@ -1,18 +1,35 @@
 "use client";
 
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, Palette, Check } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
+import { THEMES, type Theme, getSavedTheme, setColorTheme, getThemeLabel } from "@/lib/theme";
 
 export function ModeToggle() {
-  const { setTheme } = useTheme();
+  const { theme: darkMode, setTheme: setDarkMode } = useTheme();
+  const [colorTheme, setColorThemeState] = useState<Theme>("default");
+
+  useEffect(() => {
+    const saved = getSavedTheme();
+    if (saved) {
+      setColorThemeState(saved);
+    }
+  }, []);
+
+  const handleColorThemeChange = (theme: Theme) => {
+    setColorTheme(theme);
+    setColorThemeState(theme);
+  };
 
   return (
     <DropdownMenu>
@@ -23,16 +40,49 @@ export function ModeToggle() {
           <span className="sr-only">Toggle theme</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme("light")}>
-          Light
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuLabel className="flex items-center gap-2">
+          <Sun className="h-4 w-4" />
+          Mode
+        </DropdownMenuLabel>
+        <DropdownMenuItem 
+          onClick={() => setDarkMode("light")}
+          className="flex items-center justify-between"
+        >
+          <span>Light</span>
+          {darkMode === "light" && <Check className="h-4 w-4" />}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>
-          Dark
+        <DropdownMenuItem 
+          onClick={() => setDarkMode("dark")}
+          className="flex items-center justify-between"
+        >
+          <span>Dark</span>
+          {darkMode === "dark" && <Check className="h-4 w-4" />}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("system")}>
-          System
+        <DropdownMenuItem 
+          onClick={() => setDarkMode("system")}
+          className="flex items-center justify-between"
+        >
+          <span>System</span>
+          {darkMode === "system" && <Check className="h-4 w-4" />}
         </DropdownMenuItem>
+        
+        <DropdownMenuSeparator />
+        
+        <DropdownMenuLabel className="flex items-center gap-2">
+          <Palette className="h-4 w-4" />
+          Color Theme
+        </DropdownMenuLabel>
+        {THEMES.map((theme) => (
+          <DropdownMenuItem
+            key={theme}
+            onClick={() => handleColorThemeChange(theme)}
+            className="flex items-center justify-between"
+          >
+            <span>{getThemeLabel(theme)}</span>
+            {colorTheme === theme && <Check className="h-4 w-4" />}
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
