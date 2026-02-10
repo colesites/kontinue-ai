@@ -35,7 +35,7 @@ export function ImportPreviewBox() {
         status === "previewing" && "border-green-500/50",
         status === "error" && "border-destructive/50",
         status === "importing" && "border-primary/50",
-        status === "success" && "border-green-500/50"
+        status === "success" && "border-green-500/50",
       )}
     >
       {/* Header */}
@@ -46,7 +46,7 @@ export function ImportPreviewBox() {
           status === "previewing" && "bg-green-500/10",
           status === "error" && "bg-destructive/10",
           status === "importing" && "bg-primary/10",
-          status === "success" && "bg-green-500/10"
+          status === "success" && "bg-green-500/10",
         )}
       >
         {status === "scanning" && (
@@ -151,7 +151,7 @@ export function ImportPreviewBox() {
                       "w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs",
                       msg.role === "user"
                         ? "bg-primary/20 text-primary"
-                        : "bg-purple-500/20 text-purple-400"
+                        : "bg-primary/20 text-primary",
                     )}
                   >
                     {msg.role === "user" ? "U" : "A"}

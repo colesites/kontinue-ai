@@ -16,9 +16,9 @@ interface PromptInputContextValue {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
-const PromptInputContext = React.createContext<PromptInputContextValue | undefined>(
-  undefined
-);
+const PromptInputContext = React.createContext<
+  PromptInputContextValue | undefined
+>(undefined);
 
 export function usePromptInput() {
   const context = React.useContext(PromptInputContext);
@@ -30,7 +30,11 @@ export function usePromptInput() {
 
 // -- Components --
 
-export function PromptInputProvider({ children }: { children: React.ReactNode }) {
+export function PromptInputProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   // In a real app, you might lift state up or use a store.
   // For this UI component, we'll let the PromptInput control the context if needed,
   // but the user's example wraps everything in Provider.
@@ -97,7 +101,7 @@ export function PromptInput({
       <div
         className={cn(
           "relative flex flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-sm transition-all focus-within:ring-1 focus-within:ring-ring/20",
-          className
+          className,
         )}
       >
         {children}
@@ -107,7 +111,11 @@ export function PromptInput({
 }
 
 export function PromptInputBody({ children }: { children: React.ReactNode }) {
-  return <div className="relative min-h-[60px] w-full px-4 pt-3 pb-10">{children}</div>;
+  return (
+    <div className="relative min-h-[60px] w-full px-4 pt-3 pb-10">
+      {children}
+    </div>
+  );
 }
 
 export const PromptInputTextarea = React.forwardRef<
@@ -142,8 +150,8 @@ export const PromptInputTextarea = React.forwardRef<
       disabled={disabled || isLoading}
       rows={1}
       className={cn(
-        "min-h-[24px] max-h-[200px] w-full resize-none border-0 bg-transparent px-0 py-0 text-base shadow-none outline-none focus-visible:ring-0 placeholder:text-muted-foreground",
-        className
+        "min-h-[24px] max-h-[200px] w-full resize-none border-0 bg-transparent px-0 py-0 text-base shadow-none outline-none focus-visible:ring-0 placeholder:text-muted-foreground/60 dark:placeholder:text-muted-foreground",
+        className,
       )}
       placeholder="Ask anything..."
       {...props}
@@ -173,7 +181,10 @@ export function PromptInputButton({
     <Button
       variant="ghost"
       size="sm"
-      className={cn("h-8 gap-2 rounded-lg text-muted-foreground hover:text-foreground px-2", className)}
+      className={cn(
+        "h-8 gap-2 rounded-lg text-muted-foreground hover:text-foreground px-2",
+        className,
+      )}
       {...props}
     >
       {children}
@@ -194,7 +205,7 @@ export function PromptInputSubmit({ status }: { status?: string }) {
         "h-8 w-8 rounded-lg transition-all",
         canSend
           ? "bg-primary text-primary-foreground hover:bg-primary/90"
-          : "bg-muted text-muted-foreground"
+          : "bg-muted text-muted-foreground",
       )}
     >
       {isLoading ? (

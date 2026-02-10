@@ -97,5 +97,24 @@ export default defineSchema({
       }),
     ),
   }).index("by_owner", ["ownerId"]),
-});
 
+  files: defineTable({
+    ownerId: v.id("users"),
+    chatId: v.optional(v.id("chats")),
+    messageId: v.optional(v.id("messages")),
+    blobUrl: v.string(), // Full Vercel Blob URL
+    pathname: v.string(), // Blob pathname/key for deletion
+    filename: v.string(),
+    contentType: v.string(),
+    size: v.number(), // bytes
+    fileType: v.union(
+      v.literal("attachment"), // User uploaded
+      v.literal("generated-image"), // AI generated
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_chat", ["chatId"])
+    .index("by_message", ["messageId"])
+    .index("by_owner_chat", ["ownerId", "chatId"]),
+});

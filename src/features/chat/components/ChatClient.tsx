@@ -12,25 +12,34 @@ import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { ChatMessage } from "@/features/chat/components/ChatMessage";
 import { ChatInput } from "@/features/chat/components/ChatInput";
+import { ImageGenerationLoader } from "@/features/chat/components/ImageGenerationLoader";
 import { getDefaultModelForPlan } from "@/lib/models";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useIsProPlan } from "@/lib/use-is-pro-plan";
+import { useModelCapabilities } from "@/lib/use-model-capabilities";
+import { useChatContext } from "@/contexts/ChatContext";
 
 export function ChatClient() {
   const params = useParams();
   const chatId = params.chatId as Id<"chats">;
+  const { setChatInfo, clearChatInfo } = useChatContext();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isPro = useIsProPlan();
+  const { getCapabilities } = useModelCapabilities();
   const [userSelectedModel, setUserSelectedModel] = useState<string | null>(
-    null
+    null,
   );
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [imageAspectRatio, setImageAspectRatio] = useState<string>("auto");
+  const [imageSize, setImageSize] = useState<string | null>(null);
   const selectedModel = useMemo(
     () => userSelectedModel ?? getDefaultModelForPlan(isPro).id,
-    [userSelectedModel, isPro]
+    [userSelectedModel, isPro],
   );
   const [showScrollButton, setShowScrollButton] = useState(false);
   const lastSavedAssistantIdRef = useRef<string | null>(null);
   const hasSeededRef = useRef(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
   // Fetch chat and messages from Convex
   const chat = useQuery(api.chats.getChat, { chatId });
@@ -38,14 +47,29 @@ export function ChatClient() {
   const addMessage = useMutation(api.messages.addMessage);
   const { state: sidebarState, isMobile: isSidebarMobile } = useSidebar();
 
-  // Create transport with model
+  // Update chat context when chat data is loaded
+  useEffect(() => {
+    if (chat && chatId) {
+      setChatInfo(chatId, chat.title || "Untitled Chat");
+    }
+    return () => {
+      clearChatInfo();
+    };
+  }, [chat, chatId, setChatInfo, clearChatInfo]);
+
+  // Create transport with model and optional image settings
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: "/api/chat",
-        body: { model: selectedModel },
+        body: {
+          model: selectedModel,
+          webSearchEnabled,
+          imageAspectRatio: imageAspectRatio || undefined,
+          imageSize: imageSize || undefined,
+        },
       }),
-    [selectedModel]
+    [selectedModel, webSearchEnabled, imageAspectRatio, imageSize],
   );
 
   // AI chat hook - new v5 API
@@ -142,31 +166,57 @@ export function ChatClient() {
     return map;
   }, [dbMessages]);
 
-  // Convert DB messages to UI format for display
+  // Convert DB messages to UI format for display (text + image parts from tool-result and file)
   const displayMessages = useMemo(() => {
-    // Prefer AI SDK messages once available (includes optimistic new messages).
     if (aiMessages.length > 0) {
       return aiMessages
         .filter((msg) => !msg.id.startsWith("import-trigger-"))
-        .map((msg) => ({
-          id: msg.id,
-          role: msg.role as "user" | "assistant",
-          content: msg.parts
-            .filter(
-              (part): part is { type: "text"; text: string } =>
-                part.type === "text"
-            )
-            .map((part) => part.text)
-            .join(""),
-          isImported: importedById[msg.id] ?? false,
-        }));
+        .map((msg) => {
+          const textParts = msg.parts.filter(
+            (p): p is { type: "text"; text: string } => p.type === "text",
+          );
+          const content = textParts.map((p) => p.text).join("");
+          const imageParts: string[] = [];
+          for (const part of msg.parts) {
+            // Handle file parts (Google Gemini native image generation)
+            if (part.type === "file" && "url" in part && part.url) {
+              imageParts.push(part.url);
+            }
+            // Handle file parts with data property (alternative format)
+            if (part.type === "file" && "data" in part && part.data) {
+              const uint8Array = part.data as Uint8Array;
+              const base64 = btoa(String.fromCharCode(...uint8Array));
+              const mimeType = (part as any).mimeType || "image/png";
+              imageParts.push(`data:${mimeType};base64,${base64}`);
+            }
+            // OpenAI image tool: typed part (tool-image_generation) or generic tool-result
+            const toolOutput =
+              part.type === "tool-image_generation" && "output" in part
+                ? (part.output as { result?: string } | undefined)?.result
+                : part.type === "tool-result" &&
+                    "toolName" in part &&
+                    part.toolName === "image_generation"
+                  ? ((part as { output?: { result?: string }; result?: string })
+                      .output?.result ?? (part as { result?: string }).result)
+                  : undefined;
+            if (typeof toolOutput === "string" && toolOutput) {
+              imageParts.push(`data:image/webp;base64,${toolOutput}`);
+            }
+          }
+          return {
+            id: msg.id,
+            role: msg.role as "user" | "assistant",
+            content,
+            imageParts,
+            isImported: importedById[msg.id] ?? false,
+          };
+        });
     }
-
-    // Fallback to DB messages before the hook is seeded/ready
     return (dbMessages ?? []).map((msg) => ({
       id: msg._id,
       role: msg.role as "user" | "assistant",
       content: msg.content,
+      imageParts: [] as string[],
       isImported: msg.metadata?.isImported ?? false,
     }));
   }, [dbMessages, aiMessages, importedById]);
@@ -216,7 +266,45 @@ export function ChatClient() {
   const isLoading = status === "submitted" || status === "streaming";
   const isStreaming = status === "streaming";
 
-  const handleSend = async (content: string) => {
+  // Detect if we're generating an image
+  const isImageModel = useMemo(() => {
+    const capabilities = getCapabilities(selectedModel);
+    return capabilities.includes("image-generation");
+  }, [selectedModel, getCapabilities]);
+
+  // Check if last user message looks like an image request
+  const lastMessageIsImageRequest = useMemo(() => {
+    for (let i = displayMessages.length - 1; i >= 0; i--) {
+      const msg = displayMessages[i];
+      if (msg.role === "user") {
+        const content = msg.content.toLowerCase();
+        return (
+          content.length > 20 &&
+          /(\b(image|picture|draw|illustration|generate|create|render|photo|paint|sketch|depict)\b|show me|make me)/i.test(
+            content,
+          )
+        );
+      }
+    }
+    return false;
+  }, [displayMessages]);
+
+  // Update image generation state
+  useEffect(() => {
+    if (status === "submitted" && isImageModel && lastMessageIsImageRequest) {
+      setIsGeneratingImage(true);
+    } else if (status === "streaming" || status === "ready") {
+      // Check if we have images in the latest message
+      const lastMessage = displayMessages[displayMessages.length - 1];
+      if (lastMessage?.imageParts && lastMessage.imageParts.length > 0) {
+        setIsGeneratingImage(false);
+      } else if (status === "ready") {
+        setIsGeneratingImage(false);
+      }
+    }
+  }, [status, isImageModel, lastMessageIsImageRequest, displayMessages]);
+
+  const handleSend = async (content: string, files?: File[]) => {
     // Lock the model for this chat session once the user sends their first message.
     if (userSelectedModel === null) {
       setUserSelectedModel(selectedModel);
@@ -224,6 +312,27 @@ export function ChatClient() {
 
     // Reset saved tracking for new stream
     lastSavedAssistantIdRef.current = null;
+
+    // Convert files to data URLs if provided
+    let fileDataUrls: string[] = [];
+    if (files && files.length > 0) {
+      try {
+        fileDataUrls = await Promise.all(
+          files.map(
+            (file) =>
+              new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+              }),
+          ),
+        );
+      } catch (err) {
+        toast.error("Failed to process attached files.");
+        return;
+      }
+    }
 
     // First, persist user message to Convex
     try {
@@ -242,9 +351,15 @@ export function ChatClient() {
       throw err;
     }
 
-    // Send to AI
+    // Send to AI - for now, file attachments are passed as data URLs in the text
+    // In the future, we can enhance this to use proper multimodal parts
+    let messageContent = content;
+    if (fileDataUrls.length > 0) {
+      messageContent = `${content}\n\n[User attached ${files!.length} file(s): ${files!.map((f) => f.name).join(", ")}]`;
+    }
+
     sendMessage({
-      text: content,
+      text: messageContent,
     });
   };
 
@@ -267,7 +382,7 @@ export function ChatClient() {
 
     const content = lastMessage.parts
       .filter(
-        (part): part is { type: "text"; text: string } => part.type === "text"
+        (part): part is { type: "text"; text: string } => part.type === "text",
       )
       .map((part) => part.text)
       .join("");
@@ -315,6 +430,7 @@ export function ChatClient() {
               key={message.id}
               role={message.role}
               content={message.content}
+              imageParts={message.imageParts}
               isImported={message.isImported}
               isStreaming={
                 isStreaming &&
@@ -325,19 +441,25 @@ export function ChatClient() {
           ))}
 
           {status === "submitted" && (
-            <div className="flex gap-4 px-4 py-6">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/20 text-purple-400">
-                <Loader2 size={16} className="animate-spin" />
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-zinc-400">Thinking</span>
-                <span className="flex gap-0.5">
-                  <span className="typing-dot h-1 w-1 rounded-full bg-zinc-400" />
-                  <span className="typing-dot h-1 w-1 rounded-full bg-zinc-400" />
-                  <span className="typing-dot h-1 w-1 rounded-full bg-zinc-400" />
-                </span>
-              </div>
-            </div>
+            <>
+              {isGeneratingImage ? (
+                <ImageGenerationLoader />
+              ) : (
+                <div className="flex gap-4 px-4 py-6">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Loader2 size={16} className="animate-spin" />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground">Thinking</span>
+                    <span className="flex gap-0.5">
+                      <span className="typing-dot h-1 w-1 rounded-full bg-muted-foreground" />
+                      <span className="typing-dot h-1 w-1 rounded-full bg-muted-foreground" />
+                      <span className="typing-dot h-1 w-1 rounded-full bg-muted-foreground" />
+                    </span>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           <div ref={messagesEndRef} />
@@ -377,6 +499,12 @@ export function ChatClient() {
             disabled={false}
             model={selectedModel}
             onModelChange={(next) => setUserSelectedModel(next)}
+            webSearchEnabled={webSearchEnabled}
+            onWebSearchToggle={() => setWebSearchEnabled((prev) => !prev)}
+            imageAspectRatio={imageAspectRatio}
+            imageSize={imageSize}
+            onImageAspectRatioChange={setImageAspectRatio}
+            onImageSizeChange={setImageSize}
           />
         </div>
       </div>

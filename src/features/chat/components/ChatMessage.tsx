@@ -9,6 +9,7 @@ import { MessageContent } from "./MessageContent";
 export function ChatMessage({
   role,
   content,
+  imageParts = [],
   isImported,
   isStreaming,
 }: ChatMessageProps) {
@@ -46,7 +47,7 @@ export function ChatMessage({
         >
           <div
             className={cn(
-              "prose max-w-none dark:prose-invert", // Changed from prose-sm to prose (prose-base)
+              "prose max-w-none dark:prose-invert",
               "prose-p:leading-relaxed prose-p:mt-0 prose-p:mb-4 last:prose-p:mb-0",
               "prose-headings:font-semibold prose-headings:mt-6 prose-headings:mb-3",
               "prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg",
@@ -60,10 +61,24 @@ export function ChatMessage({
               "prose-hr:my-4 prose-hr:border-border",
               "prose-strong:font-bold prose-strong:text-foreground",
               "prose-em:italic",
-              "prose-code:text-sm prose-code:bg-muted/50 prose-code:px-1 prose-code:rounded prose-code:font-medium" // Customizing inline code size
+              "prose-code:text-sm prose-code:bg-muted/50 prose-code:px-1 prose-code:rounded prose-code:font-medium"
             )}
           >
-            <MessageContent content={content} isStreaming={isStreaming} />
+            {content ? (
+              <MessageContent content={content} isStreaming={isStreaming} />
+            ) : null}
+            {imageParts.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {imageParts.map((src, i) => (
+                  <img
+                    key={i}
+                    src={src}
+                    alt={`Generated ${i + 1}`}
+                    className="max-h-80 rounded-lg border border-border object-contain"
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

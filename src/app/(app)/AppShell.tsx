@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/sidebar";
 import { cn } from "@/utils/cn";
 import { ModeToggle } from "@/components/ModeToggle";
+import { ShareButton } from "@/components/ShareButton";
+import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 
 export function AppShell({
   children,
@@ -43,7 +45,7 @@ export function AppShell({
       const billingUser = user as unknown as UserWithBilling;
       const entitlements = billingUser.entitlements ?? [];
       const isProFromEntitlements = entitlements.some(
-        (e) => e.key === "pro" || e.name === "Pro"
+        (e) => e.key === "pro" || e.name === "Pro",
       );
 
       const planFromMetadata =
@@ -82,21 +84,24 @@ export function AppShell({
   }
 
   return (
-    <SidebarProvider defaultOpen={defaultOpen}>
-      <ShellLayout>{children}</ShellLayout>
-    </SidebarProvider>
+    <ChatProvider>
+      <SidebarProvider defaultOpen={defaultOpen}>
+        <ShellLayout>{children}</ShellLayout>
+      </SidebarProvider>
+    </ChatProvider>
   );
 }
 
 function ShellLayout({ children }: { children: ReactNode }) {
   const { isMobile, open, openMobile, setOpenMobile, setOpen } = useSidebar();
+  const { chatId, chatTitle } = useChatContext();
 
   const toolbarButtonClasses =
     "inline-flex h-8 w-8 items-center justify-center rounded-lg text-foreground/85 transition-colors hover:text-foreground hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
 
   const focusSidebarSearch = () => {
     const input = document.getElementById(
-      "sidebar-thread-search"
+      "sidebar-thread-search",
     ) as HTMLInputElement | null;
     if (!input) return;
     input.focus();
@@ -131,7 +136,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
           <div
             className={cn(
               "pointer-events-auto flex items-center gap-3 rounded-2xl border border-border/50 bg-secondary/70 p-1 text-foreground shadow-sm backdrop-blur-sm",
-              hideTriggerGroup && "pointer-events-none opacity-0 scale-95"
+              hideTriggerGroup && "pointer-events-none opacity-0 scale-95",
             )}
             aria-hidden={hideTriggerGroup}
           >
@@ -154,7 +159,12 @@ function ShellLayout({ children }: { children: ReactNode }) {
             </Link>
           </div>
           <div className="pointer-events-auto">
-            <ModeToggle />
+            <div className="flex items-center gap-2">
+              {chatId && chatTitle && (
+                <ShareButton chatId={chatId} chatTitle={chatTitle} />
+              )}
+              <ModeToggle />
+            </div>
           </div>
         </div>
 

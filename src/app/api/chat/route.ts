@@ -2,12 +2,40 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import {
   streamText,
   convertToModelMessages,
+  stepCountIs,
   type UIMessage,
   type LanguageModel,
 } from "ai";
-import { createGateway } from "@ai-sdk/gateway";
-import { deriveIsPremium } from "@/lib/model-capabilities";
+import { createGateway, gateway } from "@ai-sdk/gateway";
+import { openai } from "@ai-sdk/openai";
+import { deriveCapabilities, deriveIsPremium } from "@/lib/model-capabilities";
 import { ALWAYS_FREE_MODEL_IDS, FREE_DEFAULT_MODEL_ID } from "@/lib/models";
+
+/** Map aspect ratio or explicit size to OpenAI image generation size. */
+function toOpenAIImageSize(
+  imageAspectRatio?: string | null,
+  imageSize?: string | null,
+): "1024x1024" | "1024x1536" | "1536x1024" | "auto" {
+  const allowed: Array<"1024x1024" | "1024x1536" | "1536x1024"> = [
+    "1024x1024",
+    "1024x1536",
+    "1536x1024",
+  ];
+  if (imageSize && allowed.includes(imageSize as any)) return imageSize as any;
+  if (imageSize === "auto") return "auto";
+  switch (imageAspectRatio) {
+    case "9:16":
+    case "3:4":
+      return "1024x1536"; // portrait
+    case "16:9":
+    case "4:3":
+      return "1536x1024"; // landscape
+    case "1:1":
+      return "1024x1024"; // square
+    default:
+      return "auto";
+  }
+}
 
 type AiGatewayModel = {
   id: string;
@@ -58,8 +86,9 @@ async function getIsProUser(
   const isProFromLegacy =
     planFromMetadata === "pro" || subscriptionStatusFromMetadata === "active";
 
-  const entitlements = (user as unknown as { entitlements?: { key?: string; name?: string }[] })
-    .entitlements;
+  const entitlements = (
+    user as unknown as { entitlements?: { key?: string; name?: string }[] }
+  ).entitlements;
   const isProFromEntitlements = (entitlements ?? []).some(
     (e) => e.key === "pro" || e.name === "Pro",
   );
@@ -70,7 +99,7 @@ async function getIsProUser(
 // Allow streaming responses up to 60 seconds
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `You are Continue AI, an advanced AI assistant. 
+const SYSTEM_PROMPT = `You are Continue AI, an advanced AI assistant.
 
 The user has imported a conversation from another AI platform and wants to continue it with you. You have access to the full conversation history.
 
@@ -97,15 +126,26 @@ export async function POST(req: Request) {
     const userId = authResult.userId;
     // `has` isn't always present in Clerk server typings, so access defensively.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const has = (authResult as any).has as undefined | ((args: { plan: string }) => boolean);
+    const has = (authResult as any).has as
+      | undefined
+      | ((args: { plan: string }) => boolean);
     if (!userId) {
       return new Response("Unauthorized", { status: 401 });
     }
 
-    const {
-      messages,
-      model: modelId = FREE_DEFAULT_MODEL_ID,
-    }: { messages: UIMessage[]; model?: string } = await req.json();
+    const body = (await req.json()) as {
+      messages: UIMessage[];
+      model?: string;
+      webSearchEnabled?: boolean;
+      imageAspectRatio?: string | null;
+      imageSize?: string | null;
+    };
+
+    const messages = body.messages;
+    const modelId = body.model ?? FREE_DEFAULT_MODEL_ID;
+    const webSearchEnabled = !!body.webSearchEnabled;
+    const imageAspectRatio = body.imageAspectRatio ?? null;
+    const imageSize = body.imageSize ?? null;
 
     const models = await getAiGatewayModelsCached();
     const requestedModel = models.find((m) => m.id === modelId);
@@ -115,7 +155,7 @@ export async function POST(req: Request) {
 
     const isPro = await getIsProUser(
       userId,
-      typeof has === "function" ? has : undefined
+      typeof has === "function" ? has : undefined,
     );
     const isPremium = deriveIsPremium(requestedModel);
     if (!isPro && isPremium && !ALWAYS_FREE_MODEL_IDS.has(modelId)) {
@@ -136,12 +176,85 @@ export async function POST(req: Request) {
     }
 
     const gw = createGateway({ apiKey });
+    const capabilities = deriveCapabilities(requestedModel);
+    const hasImageGen = capabilities.includes("image-generation");
+    const provider = modelId.split("/")[0];
 
-    // Format: "provider/model" e.g., "openai/gpt-4o", "anthropic/claude-3-5-sonnet", "google/gemini-2.0-flash"
+    const tools: Record<string, unknown> = {};
+    if (webSearchEnabled) {
+      tools.perplexity_search = gw.tools.perplexitySearch();
+    }
+    // Only OpenAI image models use the image_generation tool (per Vercel AI Gateway).
+    // Other providers (e.g. Google Gemini) generate images natively in the stream (no tool).
+    if (hasImageGen && provider === "openai") {
+      const size = toOpenAIImageSize(imageAspectRatio, imageSize);
+      tools.image_generation = openai.tools.imageGeneration({
+        outputFormat: "webp",
+        quality: "high",
+        size: size === "auto" ? "auto" : size,
+      });
+    }
+
+    // Strong image-generation instructions so the model actually generates instead of suggesting "paste elsewhere".
+    let imageGenContext = "";
+    if (hasImageGen && provider === "openai") {
+      imageGenContext = [
+        "\n\nImage generation (critical): You HAVE the image_generation tool and MUST use it when the user asks for an image or pastes an image prompt.",
+        "Never say you cannot render images, cannot deliver a file, or suggest the user paste the prompt into DALL·E, Midjourney, Stable Diffusion, Leonardo, or any other tool.",
+        "Always call the image_generation tool with the user's prompt. The user is on this model:",
+        modelId,
+        "Aspect/size are already set in the UI:",
+        `${imageAspectRatio ?? "auto"}, ${imageSize ?? "default"}.`,
+        "Do not ask which generator or aspect they want. Just generate the image in this chat.",
+      ].join(" ");
+    } else if (hasImageGen) {
+      // Google Gemini and other providers that generate images natively (no tool).
+      imageGenContext = [
+        "\n\nImage generation: You CAN generate images in this chat. When the user asks for an image or pastes an image prompt, generate the image.",
+        "Never say you cannot render images or suggest the user paste the prompt into DALL·E, Midjourney, Stable Diffusion, Leonardo, or elsewhere. Generate the image here.",
+      ].join(" ");
+    }
+    const systemPrompt = SYSTEM_PROMPT + imageGenContext;
+
+    // When user clearly asks for an image, force the model to call the image tool (stops "I can't attach PNG, here's SVG" responses).
+    const lastUserContent = (() => {
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const m = messages[i];
+        if (m.role === "user" && Array.isArray(m.parts)) {
+          return m.parts
+            .filter(
+              (p): p is { type: "text"; text: string } => p.type === "text",
+            )
+            .map((p) => p.text)
+            .join("");
+        }
+      }
+      return "";
+    })();
+    const looksLikeImageRequest =
+      lastUserContent.length > 25 &&
+      /(\b(image|picture|draw|illustration|generate|create a|render|photo|png|jpg|webp|prompt)\b|detailed.*illustration|natural history|watercolor|gouache)/i.test(
+        lastUserContent,
+      );
+    const forceImageTool =
+      hasImageGen &&
+      provider === "openai" &&
+      tools.image_generation &&
+      looksLikeImageRequest;
+
+    const hasTools = Object.keys(tools).length > 0;
     const result = streamText({
       model: gw(modelId) as unknown as LanguageModel,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: await convertToModelMessages(messages),
+      tools: hasTools ? (tools as any) : undefined,
+      ...(forceImageTool
+        ? {
+            toolChoice: { type: "tool" as const, toolName: "image_generation" },
+          }
+        : {}),
+      // Allow model to call tools (e.g. image_generation) and then stream the response.
+      ...(hasTools && { stopWhen: stepCountIs(3) }),
     });
 
     return result.toUIMessageStreamResponse();

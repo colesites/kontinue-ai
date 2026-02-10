@@ -441,3 +441,25 @@ export const backfillMessageOwners = mutation({
     return count;
   },
 });
+
+export const getSharedConversation = query({
+  args: { chatId: v.id("chats") },
+  handler: async (ctx, args) => {
+    // No authentication required - this is a public query
+    const conversation = await ctx.db.get(args.chatId);
+    if (!conversation) {
+      return null;
+    }
+
+    // Fetch associated messages
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_chat_order", (q) => q.eq("chatId", args.chatId))
+      .collect();
+
+    return {
+      ...conversation,
+      messages,
+    };
+  },
+});
