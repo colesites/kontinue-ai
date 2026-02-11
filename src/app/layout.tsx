@@ -44,9 +44,13 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
-                  const theme = localStorage.getItem('ui-theme');
+                  var rawTheme = localStorage.getItem('ui-theme');
+                  var theme = rawTheme === 'chelsea-blue' ? 'chelsea' : rawTheme;
                   if (theme && theme !== 'default') {
                     document.documentElement.classList.add('theme-' + theme);
+                    document.documentElement.setAttribute('data-color-theme', theme);
+                  } else {
+                    document.documentElement.removeAttribute('data-color-theme');
                   }
                 } catch (e) {}
               })();

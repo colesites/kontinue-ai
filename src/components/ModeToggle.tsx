@@ -2,7 +2,8 @@
 
 import { Moon, Sun, Palette, Check } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { FaCircle } from "react-icons/fa6";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,18 +14,11 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { THEMES, type Theme, getSavedTheme, setColorTheme, getThemeLabel } from "@/lib/theme";
+import { THEMES, type Theme, getSavedTheme, setColorTheme, getThemeLabel, getThemePrimaryColor } from "@/lib/theme";
 
 export function ModeToggle() {
   const { theme: darkMode, setTheme: setDarkMode } = useTheme();
-  const [colorTheme, setColorThemeState] = useState<Theme>("default");
-
-  useEffect(() => {
-    const saved = getSavedTheme();
-    if (saved) {
-      setColorThemeState(saved);
-    }
-  }, []);
+  const [colorTheme, setColorThemeState] = useState<Theme>(() => getSavedTheme() ?? "default");
 
   const handleColorThemeChange = (theme: Theme) => {
     setColorTheme(theme);
@@ -79,7 +73,14 @@ export function ModeToggle() {
             onClick={() => handleColorThemeChange(theme)}
             className="flex items-center justify-between"
           >
-            <span>{getThemeLabel(theme)}</span>
+            <span className="flex items-center gap-2">
+              <FaCircle
+                className="h-3 w-3"
+                style={{ color: getThemePrimaryColor(theme) }}
+                aria-hidden="true"
+              />
+              {getThemeLabel(theme)}
+            </span>
             {colorTheme === theme && <Check className="h-4 w-4" />}
           </DropdownMenuItem>
         ))}

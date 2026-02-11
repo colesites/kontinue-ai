@@ -45,19 +45,35 @@ const CLERK_THEME_COLORS = {
       border: "#3f4f4a",
     },
   },
+  chelsea: {
+    light: {
+      primary: "#1f4ea8",
+      background: "#f5f8ff",
+      inputBackground: "#ebf1ff",
+      inputText: "#1a1a1a",
+      text: "#1a1a1a",
+      textSecondary: "#5a647a",
+      border: "#d2def8",
+    },
+    dark: {
+      primary: "#3d6de0",
+      background: "#1f2430",
+      inputBackground: "#2a3242",
+      inputText: "#fafafa",
+      text: "#fafafa",
+      textSecondary: "#a7b0c4",
+      border: "#4a5a77",
+    },
+  },
 } as const;
 
 export function useClerkTheme() {
-  const [theme, setTheme] = useState<Theme>("default");
-  const [isDark, setIsDark] = useState(false);
+  const [theme, setTheme] = useState<Theme>(() => getSavedTheme() ?? "default");
+  const [isDark, setIsDark] = useState(() =>
+    typeof document !== "undefined" ? document.documentElement.classList.contains("dark") : false
+  );
 
   useEffect(() => {
-    // Get saved color theme
-    const savedTheme = getSavedTheme();
-    if (savedTheme) {
-      setTheme(savedTheme);
-    }
-
     // Check if dark mode is active
     const checkDarkMode = () => {
       setIsDark(document.documentElement.classList.contains("dark"));
@@ -70,9 +86,6 @@ export function useClerkTheme() {
         setTheme(savedTheme);
       }
     };
-
-    checkDarkMode();
-    checkTheme();
 
     // Watch for class changes (dark mode and theme changes)
     const observer = new MutationObserver(() => {

@@ -1,8 +1,18 @@
-export const THEMES = ["default", "emerald"] as const;
+export const THEMES = ["default", "emerald", "chelsea"] as const;
 export type Theme = (typeof THEMES)[number];
 
 const THEME_STORAGE_KEY = "ui-theme";
 const THEME_ONBOARDING_KEY = "theme-onboarding-completed";
+const THEME_LABELS: Record<Theme, string> = {
+  default: "Default",
+  emerald: "Emerald",
+  chelsea: "Chelsea Blue",
+};
+const THEME_PRIMARY_COLORS: Record<Theme, string> = {
+  default: "#e91e63",
+  emerald: "#10b981",
+  chelsea: "oklch(0.412 0.143 256.8203792327415)",
+};
 
 export function setColorTheme(theme: Theme) {
   if (typeof window === "undefined") return;
@@ -15,10 +25,15 @@ export function setColorTheme(theme: Theme) {
       html.classList.remove(`theme-${t}`);
     }
   });
+  // Backward compatibility for an older id used during development.
+  html.classList.remove("theme-chelsea-blue");
 
   // Add new theme class (skip for default)
   if (theme !== "default") {
     html.classList.add(`theme-${theme}`);
+    html.setAttribute("data-color-theme", theme);
+  } else {
+    html.removeAttribute("data-color-theme");
   }
 
   // Persist to localStorage
@@ -34,6 +49,9 @@ export function getSavedTheme(): Theme | null {
 
   try {
     const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved === "chelsea-blue") {
+      return "chelsea";
+    }
     if (saved && THEMES.includes(saved as Theme)) {
       return saved as Theme;
     }
@@ -49,7 +67,7 @@ export function hasCompletedThemeOnboarding(): boolean {
 
   try {
     return localStorage.getItem(THEME_ONBOARDING_KEY) === "true";
-  } catch (e) {
+  } catch {
     return false;
   }
 }
@@ -65,5 +83,9 @@ export function markThemeOnboardingComplete() {
 }
 
 export function getThemeLabel(theme: Theme): string {
-  return theme.charAt(0).toUpperCase() + theme.slice(1);
+  return THEME_LABELS[theme];
+}
+
+export function getThemePrimaryColor(theme: Theme): string {
+  return THEME_PRIMARY_COLORS[theme];
 }

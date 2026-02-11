@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Palette, Check } from "lucide-react";
+import { FaCircle } from "react-icons/fa6";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +19,7 @@ import {
   hasCompletedThemeOnboarding,
   markThemeOnboardingComplete,
   getThemeLabel,
+  getThemePrimaryColor,
 } from "@/lib/theme";
 
 interface ThemeOnboardingProps {
@@ -77,10 +79,18 @@ export function ThemeOnboarding({ onComplete }: ThemeOnboardingProps) {
                 <div className="flex items-center gap-3">
                   <RadioGroupItem value={theme} id={theme} />
                   <div className="flex flex-col">
-                    <span className="font-medium">{getThemeLabel(theme)}</span>
+                    <span className="flex items-center gap-2 font-medium">
+                      <FaCircle
+                        className="h-3 w-3"
+                        style={{ color: getThemePrimaryColor(theme) }}
+                        aria-hidden="true"
+                      />
+                      {getThemeLabel(theme)}
+                    </span>
                     <span className="text-sm text-muted-foreground">
                       {theme === "default" && "Classic pink & red tones"}
                       {theme === "emerald" && "Fresh green & teal vibes"}
+                      {theme === "chelsea" && "Royal blue with gold accents"}
                     </span>
                   </div>
                 </div>
