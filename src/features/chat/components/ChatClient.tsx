@@ -48,6 +48,7 @@ export function ChatClient() {
   // Fetch chat and messages from Convex
   const chat = useQuery(api.chats.getChat, { chatId });
   const dbMessages = useQuery(api.messages.getMessages, { chatId });
+  const chatFiles = useQuery(api.files.listByChat, { chatId });
   const addMessage = useMutation(api.messages.addMessage);
   const createFileRecord = useMutation(api.files.createFileRecord);
   const { state: sidebarState, isMobile: isSidebarMobile } = useSidebar();
@@ -165,6 +166,17 @@ export function ChatClient() {
     }
     return map;
   }, [dbMessages]);
+
+  const storedGeneratedImageUrlsByMessageId = useMemo(() => {
+    const byMessage: Record<string, string[]> = {};
+    for (const file of chatFiles ?? []) {
+      if (file.fileType !== "generated-image") continue;
+      if (!file.messageId) continue;
+      if (!byMessage[file.messageId]) byMessage[file.messageId] = [];
+      byMessage[file.messageId].push(file.blobUrl);
+    }
+    return byMessage;
+  }, [chatFiles]);
 
   // Convert DB messages to UI format for display (text + image parts from tool-result and file)
   const displayMessages = useMemo(() => {
@@ -453,8 +465,10 @@ export function ChatClient() {
           }
 
           const persistedImageUrls = persistedImageUrlsByMessageId[msg.id] ?? [];
-          const resolvedImageParts =
-            persistedImageUrls.length > 0 ? persistedImageUrls : imageParts;
+          const storedImageUrls = storedGeneratedImageUrlsByMessageId[msg.id] ?? [];
+          const resolvedImageParts = [
+            ...new Set([...persistedImageUrls, ...storedImageUrls, ...imageParts]),
+          ];
 
           return {
             id: msg.id,
@@ -469,10 +483,16 @@ export function ChatClient() {
       id: msg._id,
       role: msg.role as "user" | "assistant",
       content: msg.content,
-      imageParts: [] as string[],
+      imageParts: storedGeneratedImageUrlsByMessageId[msg._id] ?? ([] as string[]),
       isImported: msg.metadata?.isImported ?? false,
     }));
-  }, [aiMessages, dbMessages, importedById, persistedImageUrlsByMessageId]);
+  }, [
+    aiMessages,
+    dbMessages,
+    importedById,
+    persistedImageUrlsByMessageId,
+    storedGeneratedImageUrlsByMessageId,
+  ]);
 
   // Scroll to bottom when messages change
   useEffect(() => {

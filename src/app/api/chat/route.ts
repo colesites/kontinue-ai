@@ -30,9 +30,23 @@ function toOpenAIImageSize(
   if (imageSize === "auto") return "auto";
   switch (imageAspectRatio) {
     case "9:16":
+    case "9:21":
+    case "1:9":
+    case "3:7":
+    case "2:3":
+    case "1:2":
+    case "4:5":
+    case "1:4":
     case "3:4":
       return "1024x1536"; // portrait
+    case "21:9":
     case "16:9":
+    case "7:3":
+    case "4:1":
+    case "3:2":
+    case "5:3":
+    case "9:7":
+    case "5:4":
     case "4:3":
       return "1536x1024"; // landscape
     case "1:1":
@@ -302,6 +316,8 @@ export async function POST(req: Request) {
     const hasWebSearch = capabilities.includes("web-search");
     const supportsTools = modelSupportsTools(requestedModel);
     const provider = modelId.split("/")[0];
+    let openaiImageToolSize: "1024x1024" | "1024x1536" | "1536x1024" | "auto" | null =
+      null;
 
     // All models use gateway
     const modelInstance: LanguageModel = gw(modelId) as unknown as LanguageModel;
@@ -345,6 +361,7 @@ export async function POST(req: Request) {
     const canUseOpenAIImageTool = hasImageGen && provider === "openai";
     if (canUseOpenAIImageTool) {
       const size = toOpenAIImageSize(imageAspectRatio, imageSize);
+      openaiImageToolSize = size;
       const openaiViaGateway = createOpenAI({
         apiKey,
         baseURL: gatewayOpenAIBaseUrl,
@@ -399,6 +416,8 @@ export async function POST(req: Request) {
       imageGenContext = [
         "\n\nImage generation: You CAN generate images in this chat. When the user asks for an image or pastes an image prompt, generate the image.",
         "Never say you cannot render images or suggest the user paste the prompt into DALL·E, Midjourney, Stable Diffusion, Leonardo, or elsewhere. Generate the image here.",
+        "Respect the UI-selected output settings as closely as the model supports:",
+        `aspect ratio ${imageAspectRatio ?? "auto"}, size ${imageSize ?? "default"}.`,
       ].join(" ");
     }
     const systemPrompt = SYSTEM_PROMPT + webSearchContext + imageGenContext;
@@ -500,6 +519,9 @@ export async function POST(req: Request) {
       webSearchEnabled,
       hasWebSearchCapability: hasWebSearch,
       supportsTools,
+      imageAspectRatio,
+      imageSize,
+      openaiImageToolSize,
       forceWebSearchTool,
       forceImageTool: !!forceImageTool,
       hasStopWhen: stopWhen.length > 0,

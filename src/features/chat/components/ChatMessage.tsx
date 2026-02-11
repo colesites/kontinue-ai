@@ -76,7 +76,7 @@ export function ChatMessage({
       <div
         className={cn(
           "group max-w-[92%] sm:max-w-[85%]",
-          isUser ? "ml-auto w-fit" : isImageOnly ? "w-fit" : "w-full"
+          isUser ? "ml-auto w-fit" : "w-fit"
         )}
       >
         {/* Bubble */}
