@@ -1,4 +1,4 @@
-export const THEMES = ["default", "emerald", "chelsea"] as const;
+export const THEMES = ["default", "emerald", "chelsea", "amethyst"] as const;
 export type Theme = (typeof THEMES)[number];
 
 const THEME_STORAGE_KEY = "ui-theme";
@@ -7,11 +7,13 @@ const THEME_LABELS: Record<Theme, string> = {
   default: "Default",
   emerald: "Emerald",
   chelsea: "Chelsea Blue",
+  amethyst: "Amethyst",
 };
 const THEME_PRIMARY_COLORS: Record<Theme, string> = {
   default: "#e91e63",
   emerald: "#10b981",
   chelsea: "oklch(0.412 0.143 256.8203792327415)",
+  amethyst: "oklch(0.603 0.267 316.3767413595733)",
 };
 
 export function setColorTheme(theme: Theme) {

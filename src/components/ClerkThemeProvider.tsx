@@ -65,6 +65,26 @@ const CLERK_THEME_COLORS = {
       border: "#4a5a77",
     },
   },
+  amethyst: {
+    light: {
+      primary: "#b635b1",
+      background: "#ffffff",
+      inputBackground: "#f7f0f8",
+      inputText: "#1f1a21",
+      text: "#1f1a21",
+      textSecondary: "#6f6573",
+      border: "#e4d5e7",
+    },
+    dark: {
+      primary: "#cc54c7",
+      background: "#201824",
+      inputBackground: "#2a2230",
+      inputText: "#fafafa",
+      text: "#fafafa",
+      textSecondary: "#b2a7b8",
+      border: "#4d4055",
+    },
+  },
 } as const;
 
 export function useClerkTheme() {

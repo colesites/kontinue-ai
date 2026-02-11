@@ -91,6 +91,7 @@ export function ThemeOnboarding({ onComplete }: ThemeOnboardingProps) {
                       {theme === "default" && "Classic pink & red tones"}
                       {theme === "emerald" && "Fresh green & teal vibes"}
                       {theme === "chelsea" && "Royal blue with gold accents"}
+                      {theme === "amethyst" && "Bold violet and plum palette"}
                     </span>
                   </div>
                 </div>
