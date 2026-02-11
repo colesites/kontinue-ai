@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 export const getMessages = query({
   args: { chatId: v.id("chats") },
@@ -148,62 +149,11 @@ export const addMessage = mutation({
     const now = Date.now();
 
     if (args.role === "user" && order === 0 && chat.title === "New Conversation") {
-      const normalized = args.content
-        .replace(/\s+/g, " ")
-        .replace(/[`*_#>\[\]()/\\]/g, "")
-        .trim();
-
-      const base = (normalized.split(/[.!?]/)[0] ?? "").trim() || normalized;
-      const STOP_WORDS = new Set([
-        "the",
-        "a",
-        "an",
-        "to",
-        "for",
-        "of",
-        "and",
-        "or",
-        "in",
-        "on",
-        "with",
-        "about",
-        "please",
-        "help",
-        "me",
-        "i",
-        "im",
-        "i'm",
-        "can",
-        "could",
-        "would",
-        "should",
-        "do",
-        "does",
-        "is",
-        "are",
-        "my",
-        "we",
-        "you",
-      ]);
-
-      const words = base
-        .split(/\s+/)
-        .map((w) => w.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, ""))
-        .filter(Boolean);
-
-      const filteredWords = words.filter((w) => !STOP_WORDS.has(w.toLowerCase()));
-      const chosen = (filteredWords.length > 0 ? filteredWords : words).slice(0, 7);
-      const candidate = chosen.join(" ");
-      const maxChars = 32;
-      const title = candidate.length > maxChars
-        ? `${candidate.slice(0, maxChars).trimEnd()}…`
-        : candidate || "New Conversation";
-
-      await ctx.db.patch(args.chatId, {
-        title,
-        updatedAt: now,
+      // Schedule title generation as a background action
+      await ctx.scheduler.runAfter(0, internal.titleGenerator.generateAndUpdateTitle, {
+        chatId: args.chatId,
+        firstMessage: args.content,
       });
-      chat.title = title;
     }
 
     const messageId = await ctx.db.insert("messages", {
@@ -264,3 +214,16 @@ export const updateMessageContent = mutation({
   },
 });
 
+// Internal mutation to update chat title (bypasses auth checks)
+export const updateChatTitleInternal = internalMutation({
+  args: {
+    chatId: v.id("chats"),
+    title: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.chatId, {
+      title: args.title,
+      updatedAt: Date.now(),
+    });
+  },
+});

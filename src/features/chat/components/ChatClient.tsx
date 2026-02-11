@@ -62,19 +62,14 @@ export function ChatClient() {
     () =>
       new DefaultChatTransport({
         api: "/api/chat",
-        body: {
-          model: selectedModel,
-          webSearchEnabled,
-          imageAspectRatio: imageAspectRatio || undefined,
-          imageSize: imageSize || undefined,
-        },
       }),
-    [selectedModel, webSearchEnabled, imageAspectRatio, imageSize],
+    [],
   );
 
   // AI chat hook - new v5 API
   const chatHelpers = useChat({
     transport,
+    experimental_throttle: 50, // Throttle updates to 50ms for smoother streaming
     onError: (err) => {
       console.error("AI chat error:", err);
       const message =
@@ -175,8 +170,34 @@ export function ChatClient() {
           const textParts = msg.parts.filter(
             (p): p is { type: "text"; text: string } => p.type === "text",
           );
-          const content = textParts.map((p) => p.text).join("");
+          let content = textParts.map((p) => p.text).join("");
           const imageParts: string[] = [];
+          const searchLines: string[] = [];
+
+          const collectSearchLines = (value: unknown) => {
+            const maybeObject =
+              typeof value === "object" && value !== null
+                ? (value as {
+                    results?: Array<{
+                      title?: string;
+                      url?: string;
+                      snippet?: string;
+                    }>;
+                  })
+                : null;
+            const results = maybeObject?.results;
+            if (!Array.isArray(results)) return;
+
+            for (const result of results) {
+              if (!result || typeof result !== "object") continue;
+              const url = result.url?.trim();
+              if (!url) continue;
+              const title = result.title?.trim() || url;
+              const snippet = result.snippet?.trim();
+              searchLines.push(`- [${title}](${url})${snippet ? `\n  ${snippet}` : ""}`);
+            }
+          };
+
           for (const part of msg.parts) {
             // Handle file parts (Google Gemini native image generation)
             if (part.type === "file" && "url" in part && part.url) {
@@ -202,7 +223,30 @@ export function ChatClient() {
             if (typeof toolOutput === "string" && toolOutput) {
               imageParts.push(`data:image/webp;base64,${toolOutput}`);
             }
+
+            // Perplexity search tool: render links/snippets when the model does not emit text.
+            if (
+              part.type === "tool-perplexity_search" &&
+              "output" in part &&
+              part.output
+            ) {
+              collectSearchLines(part.output);
+            } else if (
+              part.type === "tool-result" &&
+              "toolName" in part &&
+              part.toolName === "perplexity_search"
+            ) {
+              const output =
+                (part as { output?: unknown; result?: unknown }).output ??
+                (part as { output?: unknown; result?: unknown }).result;
+              collectSearchLines(output);
+            }
           }
+
+          if (!content.trim() && searchLines.length > 0) {
+            content = ["I searched the web and found:", ...searchLines].join("\n");
+          }
+
           return {
             id: msg.id,
             role: msg.role as "user" | "assistant",
@@ -219,7 +263,7 @@ export function ChatClient() {
       imageParts: [] as string[],
       isImported: msg.metadata?.isImported ?? false,
     }));
-  }, [dbMessages, aiMessages, importedById]);
+  }, [aiMessages, dbMessages, importedById]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -358,9 +402,26 @@ export function ChatClient() {
       messageContent = `${content}\n\n[User attached ${files!.length} file(s): ${files!.map((f) => f.name).join(", ")}]`;
     }
 
-    sendMessage({
-      text: messageContent,
+    console.log("[chat-client-debug] sending message options", {
+      model: selectedModel,
+      webSearchEnabled,
+      imageAspectRatio,
+      imageSize,
     });
+
+    sendMessage(
+      {
+        text: messageContent,
+      },
+      {
+        body: {
+          model: selectedModel,
+          webSearchEnabled,
+          imageAspectRatio: imageAspectRatio || undefined,
+          imageSize: imageSize || undefined,
+        },
+      },
+    );
   };
 
   // Persist assistant messages when streaming completes

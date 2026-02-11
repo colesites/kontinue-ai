@@ -254,22 +254,21 @@ export function ChatInput({
               </ModelSelector>
               <PromptInputButton
                 type="button"
-                disabled={!canSearch}
                 onClick={() => {
-                  if (!canSearch || !onWebSearchToggle) return;
+                  if (!onWebSearchToggle) return;
                   onWebSearchToggle();
                 }}
                 className={
-                  webSearchEnabled && canSearch
+                  webSearchEnabled
                     ? "bg-primary/10 text-primary hover:bg-primary/15"
-                    : "text-muted-foreground/50 hover:text-muted-foreground/70"
+                    : "text-muted-foreground/70 hover:text-muted-foreground"
                 }
                 title={
-                  canSearch
-                    ? webSearchEnabled
-                      ? "Web search enabled"
-                      : "Enable web search"
-                    : "Web search not available"
+                  webSearchEnabled
+                    ? "Web search enabled"
+                    : canSearch
+                      ? "Enable web search"
+                      : "Enable web search (model support checked server-side)"
                 }
               >
                 <CiGlobe className="h-4 w-4" />

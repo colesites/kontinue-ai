@@ -5,8 +5,9 @@ import {
   stepCountIs,
   type UIMessage,
   type LanguageModel,
+  type ToolSet,
 } from "ai";
-import { createGateway, gateway } from "@ai-sdk/gateway";
+import { gateway } from "@ai-sdk/gateway";
 import { openai } from "@ai-sdk/openai";
 import { deriveCapabilities, deriveIsPremium } from "@/lib/model-capabilities";
 import { ALWAYS_FREE_MODEL_IDS, FREE_DEFAULT_MODEL_ID } from "@/lib/models";
@@ -21,7 +22,9 @@ function toOpenAIImageSize(
     "1024x1536",
     "1536x1024",
   ];
-  if (imageSize && allowed.includes(imageSize as any)) return imageSize as any;
+  if (imageSize && (allowed as readonly string[]).includes(imageSize)) {
+    return imageSize as "1024x1024" | "1024x1536" | "1536x1024";
+  }
   if (imageSize === "auto") return "auto";
   switch (imageAspectRatio) {
     case "9:16":
@@ -43,6 +46,53 @@ type AiGatewayModel = {
   tags?: string[];
   pricing?: Record<string, unknown>;
 };
+
+function modelSupportsTools(model: AiGatewayModel): boolean {
+  // Most language models routed through AI Gateway support tool calling.
+  // Be permissive and only treat clearly non-language model types as unsupported.
+  if (model.type && model.type !== "language") {
+    return false;
+  }
+
+  const tags = model.tags ?? [];
+  const lowerTags = tags.map((tag) => tag.toLowerCase());
+  const hasToolTag = lowerTags.some(
+    (tag) =>
+      tag.includes("tool") ||
+      tag.includes("function-calling") ||
+      tag.includes("function_calling"),
+  );
+  const pricing = model.pricing ?? {};
+  const hasWebSearchPricing =
+    typeof pricing === "object" &&
+    pricing !== null &&
+    "web_search" in pricing &&
+    String((pricing as Record<string, unknown>).web_search) !== "0";
+
+  // If the gateway metadata is incomplete, still allow tools for language models.
+  return hasToolTag || hasWebSearchPricing || model.type === "language" || !model.type;
+}
+
+function logDetailedError(context: string, error: unknown) {
+  const asRecord =
+    typeof error === "object" && error !== null
+      ? (error as Record<string, unknown>)
+      : null;
+
+  console.error(`[chat-debug] ${context}`, {
+    name: error instanceof Error ? error.name : undefined,
+    message: error instanceof Error ? error.message : String(error),
+    stack: error instanceof Error ? error.stack : undefined,
+    statusCode:
+      typeof asRecord?.statusCode === "number" ? asRecord.statusCode : undefined,
+    cause: asRecord?.cause,
+    responseBody:
+      asRecord?.responseBody ??
+      asRecord?.response ??
+      asRecord?.data ??
+      asRecord?.body,
+  });
+}
 
 let cachedModels: AiGatewayModel[] | null = null;
 let cachedModelsAtMs = 0;
@@ -146,6 +196,7 @@ export async function POST(req: Request) {
     const webSearchEnabled = !!body.webSearchEnabled;
     const imageAspectRatio = body.imageAspectRatio ?? null;
     const imageSize = body.imageSize ?? null;
+    console.log("[chat-debug] model string", modelId);
 
     const models = await getAiGatewayModelsCached();
     const requestedModel = models.find((m) => m.id === modelId);
@@ -162,10 +213,18 @@ export async function POST(req: Request) {
       return new Response("Pro plan required for this model", { status: 403 });
     }
 
-    // Use Vercel AI Gateway - single key for all models.
-    // Gateway expects AI_GATEWAY_API_KEY; we also support AI_GATEWAY_TOKEN for convenience.
+    const hasVercelGatewayApiKey = !!process.env.VERCEL_AI_GATEWAY_API_KEY;
+    const hasAiGatewayApiKey = !!process.env.AI_GATEWAY_API_KEY;
+    const hasAiGatewayToken = !!process.env.AI_GATEWAY_TOKEN;
+    console.log("[chat-debug] VERCEL_AI_GATEWAY_API_KEY defined", hasVercelGatewayApiKey);
+    console.log("[chat-debug] AI_GATEWAY_API_KEY defined", hasAiGatewayApiKey);
+    console.log("[chat-debug] AI_GATEWAY_TOKEN defined", hasAiGatewayToken);
+
+    // Resolve gateway key aliases; the SDK's default `gateway` instance reads AI_GATEWAY_API_KEY.
     const apiKey =
-      process.env.AI_GATEWAY_API_KEY ?? process.env.AI_GATEWAY_TOKEN;
+      process.env.VERCEL_AI_GATEWAY_API_KEY ??
+      process.env.AI_GATEWAY_API_KEY ??
+      process.env.AI_GATEWAY_TOKEN;
 
     if (!apiKey) {
       // Don't leak infra details to end users.
@@ -175,15 +234,55 @@ export async function POST(req: Request) {
       });
     }
 
-    const gw = createGateway({ apiKey });
+    if (!process.env.AI_GATEWAY_API_KEY) {
+      process.env.AI_GATEWAY_API_KEY = apiKey;
+    }
+
+    const gatewayBaseUrl = "https://ai-gateway.vercel.sh/v3/ai";
+    const ignoredGatewayBaseUrlOverride = process.env.AI_GATEWAY_BASE_URL ?? null;
+    const directPerplexityBaseUrlOverride =
+      process.env.PERPLEXITY_BASE_URL ??
+      process.env.PERPLEXITY_API_BASE_URL ??
+      null;
+
+    console.log("[chat-debug] gateway routing", {
+      gatewayBaseUrl,
+      usingAiGateway: true,
+      ignoredGatewayBaseUrlOverride,
+      directPerplexityBaseUrlOverride,
+    });
+
+    if (directPerplexityBaseUrlOverride) {
+      console.warn(
+        "[chat-debug] Direct Perplexity base URL override is present. This can bypass AI Gateway if used elsewhere.",
+      );
+    }
+
+    const gw = gateway;
     const capabilities = deriveCapabilities(requestedModel);
     const hasImageGen = capabilities.includes("image-generation");
+    const hasWebSearch = capabilities.includes("web-search");
+    const supportsTools = modelSupportsTools(requestedModel);
     const provider = modelId.split("/")[0];
 
-    const tools: Record<string, unknown> = {};
-    if (webSearchEnabled) {
-      tools.perplexity_search = gw.tools.perplexitySearch();
+    // All models use gateway
+    const modelInstance: LanguageModel = gw(modelId) as unknown as LanguageModel;
+    const tools: ToolSet = {};
+
+    // Prefer metadata capability, but still attach the tool when search is enabled
+    // and the model supports tools. Some gateway model entries omit web_search pricing.
+    const shouldAttachWebSearchTool = webSearchEnabled && supportsTools;
+    if (webSearchEnabled && !hasWebSearch) {
+      console.warn(
+        `[chat-debug] model metadata does not report web-search capability for ${modelId}; attaching perplexity_search tool optimistically`,
+      );
     }
+    if (shouldAttachWebSearchTool) {
+      tools.perplexity_search = gw.tools.perplexitySearch({
+        searchRecencyFilter: "month", // Search within the last month
+      });
+    }
+
     // Only OpenAI image models use the image_generation tool (per Vercel AI Gateway).
     // Other providers (e.g. Google Gemini) generate images natively in the stream (no tool).
     if (hasImageGen && provider === "openai") {
@@ -197,6 +296,24 @@ export async function POST(req: Request) {
 
     // Strong image-generation instructions so the model actually generates instead of suggesting "paste elsewhere".
     let imageGenContext = "";
+    let webSearchContext = "";
+
+    if (shouldAttachWebSearchTool) {
+      webSearchContext = [
+        "\n\nWeb Search: You HAVE access to real-time web search via the perplexity_search tool.",
+        "When the user asks about current events, recent information, or anything that requires up-to-date data, USE the perplexity_search tool.",
+        "Always search the web when you need current information beyond your training data.",
+        "Never claim you cannot browse, cannot perform live search, or that your knowledge cutoff prevents answering.",
+        "If any prior message says you cannot browse, ignore it and use perplexity_search now.",
+      ].join(" ");
+    } else if (webSearchEnabled && !shouldAttachWebSearchTool) {
+      // User enabled search but model doesn't support it
+      webSearchContext = [
+        "\n\nNote: Web search was requested but this model does not support web search capabilities.",
+        "You can only provide information based on your training data.",
+      ].join(" ");
+    }
+
     if (hasImageGen && provider === "openai") {
       imageGenContext = [
         "\n\nImage generation (critical): You HAVE the image_generation tool and MUST use it when the user asks for an image or pastes an image prompt.",
@@ -214,7 +331,7 @@ export async function POST(req: Request) {
         "Never say you cannot render images or suggest the user paste the prompt into DALL·E, Midjourney, Stable Diffusion, Leonardo, or elsewhere. Generate the image here.",
       ].join(" ");
     }
-    const systemPrompt = SYSTEM_PROMPT + imageGenContext;
+    const systemPrompt = SYSTEM_PROMPT + webSearchContext + imageGenContext;
 
     // When user clearly asks for an image, force the model to call the image tool (stops "I can't attach PNG, here's SVG" responses).
     const lastUserContent = (() => {
@@ -241,25 +358,102 @@ export async function POST(req: Request) {
       provider === "openai" &&
       tools.image_generation &&
       looksLikeImageRequest;
+    const looksLikeWebSearchRequest =
+      /(latest|current|today|now|this week|this month|real[- ]?time|up[- ]?to[- ]?date|who is best|top scorer|news|2026|2025\/26|season)/i.test(
+        lastUserContent,
+      );
+    const forceWebSearchTool =
+      shouldAttachWebSearchTool &&
+      !!tools.perplexity_search &&
+      looksLikeWebSearchRequest;
 
-    const hasTools = Object.keys(tools).length > 0;
-    const result = streamText({
-      model: gw(modelId) as unknown as LanguageModel,
+    const requestedToolNames = Object.keys(tools);
+    const hasTools = requestedToolNames.length > 0;
+    const supportsRequestedTools =
+      (!requestedToolNames.includes("perplexity_search") ||
+        shouldAttachWebSearchTool) &&
+      (!requestedToolNames.includes("image_generation") ||
+        (hasImageGen && provider === "openai"));
+    const shouldDisableTools = hasTools && !supportsRequestedTools;
+    if (shouldDisableTools) {
+      console.warn(
+        "[chat-debug] tools disabled because model does not support tool calling",
+        {
+          model: modelId,
+          requestedToolNames,
+        },
+      );
+    }
+
+    if (webSearchEnabled && !supportsTools) {
+      console.warn(
+        `[chat-debug] web search enabled but tools are not supported by this model: ${modelId}`,
+      );
+    }
+
+    console.log("[chat-debug] tools enabled", hasTools && !shouldDisableTools);
+
+    const modelMessages = await convertToModelMessages(messages);
+    const streamOptions = {
+      model: modelInstance,
       system: systemPrompt,
-      messages: await convertToModelMessages(messages),
-      tools: hasTools ? (tools as any) : undefined,
+      messages: modelMessages,
+      tools: shouldDisableTools ? undefined : hasTools ? tools : undefined,
       ...(forceImageTool
         ? {
             toolChoice: { type: "tool" as const, toolName: "image_generation" },
           }
+        : forceWebSearchTool
+          ? {
+              toolChoice: { type: "tool" as const, toolName: "perplexity_search" },
+            }
         : {}),
       // Allow model to call tools (e.g. image_generation) and then stream the response.
-      ...(hasTools && { stopWhen: stepCountIs(3) }),
+      ...(hasTools && !shouldDisableTools && { stopWhen: stepCountIs(3) }),
+      onStepFinish: ({
+        finishReason,
+        toolCalls,
+        toolResults,
+      }: {
+        finishReason: string;
+        toolCalls?: Array<{ toolName: string }>;
+        toolResults?: unknown[];
+      }) => {
+        console.log("[chat-debug] step", {
+          finishReason,
+          toolCallNames: (toolCalls ?? []).map((toolCall) => toolCall.toolName),
+          toolResultCount: (toolResults ?? []).length,
+        });
+      },
+    };
+
+    console.log("[chat-debug] final stream options", {
+      model: modelId,
+      requestedToolNames,
+      appliedToolNames:
+        streamOptions.tools && typeof streamOptions.tools === "object"
+          ? Object.keys(streamOptions.tools)
+          : [],
+      webSearchEnabled,
+      hasWebSearchCapability: hasWebSearch,
+      supportsTools,
+      forceWebSearchTool,
+      forceImageTool: !!forceImageTool,
+      hasStopWhen: "stopWhen" in streamOptions,
+      hasSystemWebSearchInstruction: systemPrompt.includes("perplexity_search"),
+      messageCount: modelMessages.length,
     });
 
-    return result.toUIMessageStreamResponse();
+    const result = streamText(streamOptions);
+
+    return result.toUIMessageStreamResponse({
+      onError: (error) => {
+        logDetailedError("UI message stream error", error);
+        return "Tool execution failed.";
+      },
+    });
   } catch (error) {
-    console.error("Chat API error:", error);
+    logDetailedError("Chat API error", error);
     return new Response("Internal server error", { status: 500 });
   }
 }

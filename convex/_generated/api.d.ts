@@ -12,6 +12,7 @@ import type * as chats from "../chats.js";
 import type * as files from "../files.js";
 import type * as firecrawl from "../firecrawl.js";
 import type * as messages from "../messages.js";
+import type * as titleGenerator from "../titleGenerator.js";
 import type * as users from "../users.js";
 
 import type {
@@ -25,6 +26,7 @@ declare const fullApi: ApiFromModules<{
   files: typeof files;
   firecrawl: typeof firecrawl;
   messages: typeof messages;
+  titleGenerator: typeof titleGenerator;
   users: typeof users;
 }>;
 

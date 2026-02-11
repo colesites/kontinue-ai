@@ -2,7 +2,7 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { createGateway, gateway } from "@ai-sdk/gateway";
+import { createGateway } from "@ai-sdk/gateway";
 import { generateText } from "ai";
 
 const FIRECRAWL_API_BASE = "https://api.firecrawl.dev/v1";
@@ -68,10 +68,13 @@ Hi! How can I help?
 
 function getLLMModel() {
   const apiKey = process.env.AI_GATEWAY_TOKEN;
-  const gw = apiKey ? createGateway({ apiKey }) : null;
+  if (!apiKey) {
+    throw new Error("AI_GATEWAY_TOKEN is not set");
+  }
+  const gw = createGateway({ apiKey });
   const modelId = "google/gemini-2.0-flash-001";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (gw ? gw(modelId) : gateway(modelId)) as any;
+  return gw(modelId) as any;
 }
 
 async function normalizeTranscriptWithLLM(markdown: string) {
