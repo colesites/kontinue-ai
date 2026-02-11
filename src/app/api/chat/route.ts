@@ -10,7 +10,7 @@ import {
   type ToolSet,
 } from "ai";
 import { gateway } from "@ai-sdk/gateway";
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI } from "@ai-sdk/openai";
 import { deriveCapabilities, deriveIsPremium } from "@/lib/model-capabilities";
 import { ALWAYS_FREE_MODEL_IDS, FREE_DEFAULT_MODEL_ID } from "@/lib/models";
 
@@ -273,6 +273,9 @@ export async function POST(req: Request) {
     }
 
     const gatewayBaseUrl = "https://ai-gateway.vercel.sh/v3/ai";
+    const gatewayOpenAIBaseUrl =
+      process.env.AI_GATEWAY_OPENAI_BASE_URL ??
+      "https://ai-gateway.vercel.sh/v1";
     const ignoredGatewayBaseUrlOverride = process.env.AI_GATEWAY_BASE_URL ?? null;
     const directPerplexityBaseUrlOverride =
       process.env.PERPLEXITY_BASE_URL ??
@@ -281,6 +284,7 @@ export async function POST(req: Request) {
 
     console.log("[chat-debug] gateway routing", {
       gatewayBaseUrl,
+      gatewayOpenAIBaseUrl,
       usingAiGateway: true,
       ignoredGatewayBaseUrlOverride,
       directPerplexityBaseUrlOverride,
@@ -338,9 +342,15 @@ export async function POST(req: Request) {
 
     // Only OpenAI image models use the image_generation tool (per Vercel AI Gateway).
     // Other providers (e.g. Google Gemini) generate images natively in the stream (no tool).
-    if (hasImageGen && provider === "openai") {
+    const canUseOpenAIImageTool = hasImageGen && provider === "openai";
+    if (canUseOpenAIImageTool) {
       const size = toOpenAIImageSize(imageAspectRatio, imageSize);
-      tools.image_generation = openai.tools.imageGeneration({
+      const openaiViaGateway = createOpenAI({
+        apiKey,
+        baseURL: gatewayOpenAIBaseUrl,
+      });
+
+      tools.image_generation = openaiViaGateway.tools.imageGeneration({
         outputFormat: "webp",
         quality: "high",
         size: size === "auto" ? "auto" : size,
@@ -374,7 +384,7 @@ export async function POST(req: Request) {
       ].join(" ");
     }
 
-    if (hasImageGen && provider === "openai") {
+    if (canUseOpenAIImageTool) {
       imageGenContext = [
         "\n\nImage generation (critical): You HAVE the image_generation tool and MUST use it when the user asks for an image or pastes an image prompt.",
         "Never say you cannot render images, cannot deliver a file, or suggest the user paste the prompt into DALL·E, Midjourney, Stable Diffusion, Leonardo, or any other tool.",

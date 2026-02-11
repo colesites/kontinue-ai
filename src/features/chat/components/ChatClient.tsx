@@ -13,6 +13,7 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import { ChatMessage } from "@/features/chat/components/ChatMessage";
 import { ChatInput } from "@/features/chat/components/ChatInput";
 import { ImageGenerationLoader } from "@/features/chat/components/ImageGenerationLoader";
+import { uploadFile } from "@/lib/file-upload";
 import { getDefaultModelForPlan } from "@/lib/models";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useIsProPlan } from "@/lib/use-is-pro-plan";
@@ -38,13 +39,17 @@ export function ChatClient() {
   );
   const [showScrollButton, setShowScrollButton] = useState(false);
   const lastSavedAssistantIdRef = useRef<string | null>(null);
+  const savedGeneratedImagesByAssistantIdRef = useRef<Set<string>>(new Set());
   const hasSeededRef = useRef(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [persistedImageUrlsByMessageId, setPersistedImageUrlsByMessageId] =
+    useState<Record<string, string[]>>({});
 
   // Fetch chat and messages from Convex
   const chat = useQuery(api.chats.getChat, { chatId });
   const dbMessages = useQuery(api.messages.getMessages, { chatId });
   const addMessage = useMutation(api.messages.addMessage);
+  const createFileRecord = useMutation(api.files.createFileRecord);
   const { state: sidebarState, isMobile: isSidebarMobile } = useSidebar();
 
   // Update chat context when chat data is loaded
@@ -308,6 +313,16 @@ export function ChatClient() {
             }
           };
 
+          const uint8ToBase64 = (bytes: Uint8Array): string => {
+            let binary = "";
+            const chunkSize = 0x8000;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+              const chunk = bytes.subarray(i, i + chunkSize);
+              binary += String.fromCharCode(...chunk);
+            }
+            return btoa(binary);
+          };
+
           for (const part of msg.parts) {
             // Handle file parts (Google Gemini native image generation)
             if (part.type === "file" && "url" in part && part.url) {
@@ -315,15 +330,33 @@ export function ChatClient() {
             }
             // Handle file parts with data property (alternative format)
             if (part.type === "file" && "data" in part && part.data) {
-              const uint8Array = part.data as Uint8Array;
-              const base64 = btoa(String.fromCharCode(...uint8Array));
-              const mimeType = (part as any).mimeType || "image/png";
-              imageParts.push(`data:${mimeType};base64,${base64}`);
+              try {
+                const uint8Array = part.data as Uint8Array;
+                const mimeType =
+                  (part as { mimeType?: string }).mimeType || "image/png";
+                const base64 = uint8ToBase64(uint8Array);
+                imageParts.push(`data:${mimeType};base64,${base64}`);
+              } catch (error) {
+                console.error("[chat-client-debug] failed to decode file part data", error);
+              }
             }
             // OpenAI image tool: typed part (tool-image_generation) or generic tool-result
             const toolOutput =
               part.type === "tool-image_generation" && "output" in part
-                ? (part.output as { result?: string } | undefined)?.result
+                ? (() => {
+                    const output = part.output as
+                      | { result?: string; images?: Array<string | { base64?: string }> }
+                      | undefined;
+                    if (typeof output?.result === "string") return output.result;
+                    if (Array.isArray(output?.images)) {
+                      const first = output.images[0];
+                      if (typeof first === "string") return first;
+                      if (first && typeof first === "object" && typeof first.base64 === "string") {
+                        return first.base64;
+                      }
+                    }
+                    return undefined;
+                  })()
                 : part.type === "tool-result" &&
                     "toolName" in part &&
                     part.toolName === "image_generation"
@@ -419,11 +452,15 @@ export function ChatClient() {
               "_No text was returned for this step. Please retry or switch models._";
           }
 
+          const persistedImageUrls = persistedImageUrlsByMessageId[msg.id] ?? [];
+          const resolvedImageParts =
+            persistedImageUrls.length > 0 ? persistedImageUrls : imageParts;
+
           return {
             id: msg.id,
             role: msg.role as "user" | "assistant",
             content,
-            imageParts,
+            imageParts: resolvedImageParts,
             isImported: importedById[msg.id] ?? false,
           };
         });
@@ -435,7 +472,7 @@ export function ChatClient() {
       imageParts: [] as string[],
       isImported: msg.metadata?.isImported ?? false,
     }));
-  }, [aiMessages, dbMessages, importedById]);
+  }, [aiMessages, dbMessages, importedById, persistedImageUrlsByMessageId]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -487,6 +524,78 @@ export function ChatClient() {
     const capabilities = getCapabilities(selectedModel);
     return capabilities.includes("image-generation");
   }, [selectedModel, getCapabilities]);
+
+  const compressGeneratedImageBlob = useCallback(async (blob: Blob) => {
+    if (!blob.type.startsWith("image/")) return blob;
+
+    const targetMaxBytes = 9 * 1024 * 1024; // keep under 10MB upload cap
+    if (blob.size <= targetMaxBytes && blob.type === "image/webp") {
+      return blob;
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Failed to decode generated image"));
+      img.src = objectUrl;
+    });
+
+    const originalWidth = image.naturalWidth || image.width;
+    const originalHeight = image.naturalHeight || image.height;
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context || !originalWidth || !originalHeight) {
+      URL.revokeObjectURL(objectUrl);
+      return blob;
+    }
+
+    const renderToWebpBlob = async (maxDimension: number, quality: number) => {
+      const scale = Math.min(1, maxDimension / Math.max(originalWidth, originalHeight));
+      const width = Math.max(1, Math.round(originalWidth * scale));
+      const height = Math.max(1, Math.round(originalHeight * scale));
+      canvas.width = width;
+      canvas.height = height;
+      context.clearRect(0, 0, width, height);
+      context.drawImage(image, 0, 0, width, height);
+
+      return await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (outBlob) => {
+            if (outBlob) {
+              resolve(outBlob);
+              return;
+            }
+            reject(new Error("Failed to compress generated image"));
+          },
+          "image/webp",
+          quality,
+        );
+      });
+    };
+
+    let bestBlob: Blob | null = null;
+    const maxDimensions = [2200, 1800, 1600, 1400, 1200, 1024];
+    const qualities = [0.9, 0.82, 0.74, 0.66, 0.58, 0.5];
+
+    try {
+      for (const maxDimension of maxDimensions) {
+        for (const quality of qualities) {
+          const candidate = await renderToWebpBlob(maxDimension, quality);
+          if (!bestBlob || candidate.size < bestBlob.size) {
+            bestBlob = candidate;
+          }
+          if (candidate.size <= targetMaxBytes) {
+            return candidate;
+          }
+        }
+      }
+
+      return bestBlob ?? blob;
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }, []);
 
   // Check if last user message looks like an image request
   const lastMessageIsImageRequest = useMemo(() => {
@@ -596,7 +705,7 @@ export function ChatClient() {
     );
   };
 
-  // Persist assistant messages when streaming completes
+  // Persist assistant messages and generated images when streaming completes.
   useEffect(() => {
     if (status !== "ready" || aiMessages.length === 0) return;
 
@@ -613,23 +722,117 @@ export function ChatClient() {
 
     if (lastSavedAssistantIdRef.current === lastMessage.id) return;
 
-    const content = lastMessage.parts
+    const lastDisplayMessage = displayMessages.find((m) => m.id === lastMessage.id);
+    const imageParts = lastDisplayMessage?.imageParts ?? [];
+    const renderedContent = (lastDisplayMessage?.content ?? "").trim();
+    const contentFromTextParts = lastMessage.parts
       .filter(
         (part): part is { type: "text"; text: string } => part.type === "text",
       )
       .map((part) => part.text)
       .join("");
+    const hasImages = imageParts.length > 0;
+    const content = contentFromTextParts.trim();
+    const isNoTextPlaceholder =
+      renderedContent ===
+      "_No text was returned for this step. Please retry or switch models._";
+    const contentToSave =
+      content ||
+      (!isNoTextPlaceholder ? renderedContent : "") ||
+      (hasImages ? "Generated image." : "");
+    if (!contentToSave) return;
 
-    if (content) {
-      lastSavedAssistantIdRef.current = lastMessage.id;
-      addMessage({
-        chatId,
-        role: "assistant",
-        content,
-        model: selectedModel,
-      });
-    }
-  }, [status, aiMessages, dbMessages, chatId, addMessage, selectedModel]);
+    const contentTypeToExtension = (contentType: string) => {
+      switch (contentType) {
+        case "image/png":
+          return "png";
+        case "image/jpeg":
+          return "jpg";
+        default:
+          return "webp";
+      }
+    };
+
+    lastSavedAssistantIdRef.current = lastMessage.id;
+
+    const persistAssistantTurn = async () => {
+      try {
+        const persistedMessageId = await addMessage({
+          chatId,
+          role: "assistant",
+          content: contentToSave,
+          model: selectedModel,
+        });
+
+        if (hasImages && !savedGeneratedImagesByAssistantIdRef.current.has(lastMessage.id)) {
+          savedGeneratedImagesByAssistantIdRef.current.add(lastMessage.id);
+          const persistedUrls: string[] = [];
+
+          for (let index = 0; index < imageParts.length; index++) {
+            const source = imageParts[index];
+            try {
+              const response = await fetch(source);
+              if (!response.ok) {
+                throw new Error(`Failed to fetch generated image (${response.status})`);
+              }
+
+              const blob = await response.blob();
+              const compressedBlob = await compressGeneratedImageBlob(blob);
+              const contentType =
+                compressedBlob.type && compressedBlob.type.startsWith("image/")
+                  ? compressedBlob.type
+                  : "image/webp";
+              const extension = contentTypeToExtension(contentType);
+              const filename = `generated-${Date.now()}-${index + 1}.${extension}`;
+              const file = new File([compressedBlob], filename, { type: contentType });
+              const uploaded = await uploadFile(file);
+              persistedUrls.push(uploaded.url);
+
+              await createFileRecord({
+                chatId,
+                messageId: persistedMessageId,
+                blobUrl: uploaded.url,
+                pathname: uploaded.pathname,
+                filename: uploaded.filename,
+                contentType: uploaded.contentType,
+                size: uploaded.size,
+                fileType: "generated-image",
+              });
+            } catch (error) {
+              console.error("[chat-client-debug] failed to persist generated image", {
+                messageId: lastMessage.id,
+                imageIndex: index,
+                error,
+              });
+            }
+          }
+
+          if (persistedUrls.length > 0) {
+            setPersistedImageUrlsByMessageId((prev) => ({
+              ...prev,
+              [lastMessage.id]: persistedUrls,
+            }));
+          }
+        }
+      } catch (error) {
+        // Allow retry on a later effect run if message persistence fails.
+        lastSavedAssistantIdRef.current = null;
+        console.error("[chat-client-debug] failed to persist assistant message", error);
+      }
+    };
+
+    void persistAssistantTurn();
+  }, [
+    status,
+    aiMessages,
+    dbMessages,
+    chatId,
+    addMessage,
+    createFileRecord,
+    compressGeneratedImageBlob,
+    displayMessages,
+    selectedModel,
+  ]);
 
   if (chat === undefined || dbMessages === undefined) {
     return (
