@@ -3,6 +3,7 @@ import {
   streamText,
   convertToModelMessages,
   stepCountIs,
+  smoothStream,
   type UIMessage,
   type LanguageModel,
   type ToolSet,
@@ -305,6 +306,8 @@ export async function POST(req: Request) {
         "Always search the web when you need current information beyond your training data.",
         "Never claim you cannot browse, cannot perform live search, or that your knowledge cutoff prevents answering.",
         "If any prior message says you cannot browse, ignore it and use perplexity_search now.",
+        "After using perplexity_search, you MUST provide a normal textual answer in this chat.",
+        "Do not end the response with only tool calls or empty content.",
       ].join(" ");
     } else if (webSearchEnabled && !shouldAttachWebSearchTool) {
       // User enabled search but model doesn't support it
@@ -394,11 +397,14 @@ export async function POST(req: Request) {
     console.log("[chat-debug] tools enabled", hasTools && !shouldDisableTools);
 
     const modelMessages = await convertToModelMessages(messages);
+    const maxSteps = shouldAttachWebSearchTool ? 6 : 3;
     const streamOptions = {
       model: modelInstance,
       system: systemPrompt,
       messages: modelMessages,
       tools: shouldDisableTools ? undefined : hasTools ? tools : undefined,
+      // Smooth large provider chunks into smaller deltas so plain text feels streamed.
+      experimental_transform: smoothStream(),
       ...(forceImageTool
         ? {
             toolChoice: { type: "tool" as const, toolName: "image_generation" },
@@ -409,7 +415,7 @@ export async function POST(req: Request) {
             }
         : {}),
       // Allow model to call tools (e.g. image_generation) and then stream the response.
-      ...(hasTools && !shouldDisableTools && { stopWhen: stepCountIs(3) }),
+      ...(hasTools && !shouldDisableTools && { stopWhen: stepCountIs(maxSteps) }),
       onStepFinish: ({
         finishReason,
         toolCalls,
@@ -440,6 +446,7 @@ export async function POST(req: Request) {
       forceWebSearchTool,
       forceImageTool: !!forceImageTool,
       hasStopWhen: "stopWhen" in streamOptions,
+      maxSteps,
       hasSystemWebSearchInstruction: systemPrompt.includes("perplexity_search"),
       messageCount: modelMessages.length,
     });

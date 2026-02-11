@@ -246,6 +246,14 @@ export function ChatClient() {
           if (!content.trim() && searchLines.length > 0) {
             content = ["I searched the web and found:", ...searchLines].join("\n");
           }
+          if (
+            msg.role === "assistant" &&
+            !content.trim() &&
+            imageParts.length === 0
+          ) {
+            content =
+              "_No text was returned for this step. Please retry or switch models._";
+          }
 
           return {
             id: msg.id,
