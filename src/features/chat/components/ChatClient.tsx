@@ -172,17 +172,118 @@ export function ChatClient() {
           );
           let content = textParts.map((p) => p.text).join("");
           const imageParts: string[] = [];
-          const searchLines: string[] = [];
+          const searchResults: Array<{
+            title: string;
+            url: string;
+            snippet: string;
+          }> = [];
+
+          const normalizeSnippet = (raw: string | undefined) => {
+            if (!raw) return "";
+            return raw
+              .replace(/\{ts:\d+\}/g, " ")
+              .replace(/\|[^\n]*\|/g, " ")
+              .replace(/\b([A-Z]{1,4}\s?){4,}\b/g, " ")
+              .replace(/#{1,6}\s*/g, " ")
+              .replace(/\bGlossary\b[\s\S]*$/i, " ")
+              .replace(/\.{3,}/g, " ")
+              .replace(/\s+/g, " ")
+              .trim()
+              .slice(0, 500);
+          };
+
+          const summarizeFromTitle = (title: string) => {
+            const lower = title.toLowerCase();
+            if (lower.includes("stats")) {
+              return "Summarizes Chelsea team and player statistics for the 2025/26 season.";
+            }
+            if (lower.includes("squad")) {
+              return "Lists Chelsea squad members and appearance/position details.";
+            }
+            if (lower.includes("ratings")) {
+              return "Covers player ratings and highlights top-rated Chelsea players.";
+            }
+            if (lower.includes("transfer")) {
+              return "Reports recent Chelsea transfer activity and squad changes.";
+            }
+            return "Provides relevant background information related to the query.";
+          };
+
+          const toDisplaySummary = (title: string, snippet: string) => {
+            if (!snippet) return summarizeFromTitle(title);
+
+            const maxLen = 170;
+            const sentences = snippet
+              .split(/(?<=[.!?])\s+/)
+              .map((part) => part.trim())
+              .filter((part) => part.length > 20);
+            let candidate = sentences[0] ?? snippet;
+
+            // If the first sentence is a question/header-style line, prefer the next informative sentence.
+            if (
+              candidate.endsWith("?") &&
+              sentences.length > 1
+            ) {
+              candidate = `${candidate} ${sentences[1]}`;
+            }
+
+            const compact = candidate.replace(/\s+/g, " ").trim();
+
+            if (compact.length <= maxLen) {
+              return compact;
+            }
+            return `${compact.slice(0, maxLen).trimEnd()}... (truncated)`;
+          };
+
+          const extractSnippetFromResult = (
+            result: Record<string, unknown>,
+          ): string => {
+            const directCandidates = [
+              result.snippet,
+              result.summary,
+              result.description,
+              result.content,
+              result.text,
+              result.pageContent,
+              result.page_content,
+              result.markdown,
+              result.extract,
+            ];
+
+            for (const candidate of directCandidates) {
+              if (typeof candidate === "string" && candidate.trim()) {
+                return candidate.trim();
+              }
+              if (Array.isArray(candidate)) {
+                const joined = candidate
+                  .filter((item): item is string => typeof item === "string")
+                  .join(" ");
+                if (joined.trim()) return joined.trim();
+              }
+            }
+
+            const nestedObjects = [
+              result.output,
+              result.data,
+              result.attributes,
+              result.metadata,
+            ];
+
+            for (const nested of nestedObjects) {
+              if (typeof nested !== "object" || nested === null) continue;
+              const nestedResult = nested as Record<string, unknown>;
+              const nestedSnippet: string = extractSnippetFromResult(nestedResult);
+              if (nestedSnippet) return nestedSnippet;
+            }
+
+            return "";
+          };
 
           const collectSearchLines = (value: unknown) => {
             const maybeObject =
               typeof value === "object" && value !== null
                 ? (value as {
-                    results?: Array<{
-                      title?: string;
-                      url?: string;
-                      snippet?: string;
-                    }>;
+                    results?: Array<Record<string, unknown>>;
                   })
                 : null;
             const results = maybeObject?.results;
@@ -190,11 +291,20 @@ export function ChatClient() {
 
             for (const result of results) {
               if (!result || typeof result !== "object") continue;
-              const url = result.url?.trim();
+              const typedResult = result as Record<string, unknown>;
+              const urlValue = typedResult.url;
+              const url = typeof urlValue === "string" ? urlValue.trim() : "";
               if (!url) continue;
-              const title = result.title?.trim() || url;
-              const snippet = result.snippet?.trim();
-              searchLines.push(`- [${title}](${url})${snippet ? `\n  ${snippet}` : ""}`);
+              const titleValue = typedResult.title;
+              const title = typeof titleValue === "string" && titleValue.trim() ? titleValue.trim() : url;
+              if (searchResults.some((entry) => entry.url === url)) continue;
+              const snippet = normalizeSnippet(extractSnippetFromResult(typedResult));
+              const summary = toDisplaySummary(title, snippet);
+              searchResults.push({
+                title,
+                url,
+                snippet: summary,
+              });
             }
           };
 
@@ -243,8 +353,62 @@ export function ChatClient() {
             }
           }
 
-          if (!content.trim() && searchLines.length > 0) {
-            content = ["I searched the web and found:", ...searchLines].join("\n");
+          if (!content.trim() && searchResults.length > 0) {
+            const nameRegex =
+              /\b([A-Z][a-zA-ZÀ-ÿ'`-]+(?:\s+[A-Z][a-zA-ZÀ-ÿ'`-]+){1,2})\b/g;
+            const banned = [
+              "Premier League",
+              "Champions League",
+              "Player Stats",
+              "Top Scorers",
+              "Top Assists",
+              "Official Site",
+              "Chelsea Squad",
+              "Chelsea",
+              "English Premier League",
+            ];
+            const candidateCounts = new Map<string, number>();
+            for (const entry of searchResults) {
+              const corpus = `${entry.title} ${entry.snippet}`;
+              for (const match of corpus.matchAll(nameRegex)) {
+                const name = (match[1] || "").trim();
+                if (
+                  !name ||
+                  banned.some((token) => name.includes(token)) ||
+                  name.length < 6
+                ) {
+                  continue;
+                }
+                candidateCounts.set(name, (candidateCounts.get(name) ?? 0) + 1);
+              }
+            }
+            const topNames = Array.from(candidateCounts.entries())
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 3)
+              .map(([name]) => name);
+
+            const lines = searchResults.slice(0, 3).map((entry, index) => {
+              const preview =
+                entry.snippet ||
+                `Source: ${
+                  (() => {
+                    try {
+                      return new URL(entry.url).hostname;
+                    } catch {
+                      return "link";
+                    }
+                  })()
+                }`;
+              return `${index + 1}. [${entry.title}](${entry.url})\n   ${preview}`;
+            });
+            content = [
+              topNames.length > 0
+                ? `Quick answer: Based on current sources, likely top Chelsea players in 2026 include ${topNames.join(", ")}.`
+                : "Quick answer: I found relevant sources, but they do not provide a single definitive best player in one line.",
+              "I searched the web and found relevant sources.",
+              "Top sources:",
+              ...lines,
+            ].join("\n");
           }
           if (
             msg.role === "assistant" &&

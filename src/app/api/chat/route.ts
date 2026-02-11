@@ -6,6 +6,7 @@ import {
   smoothStream,
   type UIMessage,
   type LanguageModel,
+  type StopCondition,
   type ToolSet,
 } from "ai";
 import { gateway } from "@ai-sdk/gateway";
@@ -93,6 +94,37 @@ function logDetailedError(context: string, error: unknown) {
       asRecord?.data ??
       asRecord?.body,
   });
+}
+
+function getLastUserContent(messages: UIMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role === "user" && Array.isArray(m.parts)) {
+      return m.parts
+        .filter((p): p is { type: "text"; text: string } => p.type === "text")
+        .map((p) => p.text)
+        .join("");
+    }
+  }
+  return "";
+}
+
+function shouldStopAfterAnswer(options: {
+  steps: Array<{
+    text: string;
+    toolCalls: Array<{ toolName: string }>;
+  }>;
+}): boolean {
+  const { steps } = options;
+  const lastStep = steps[steps.length - 1];
+  if (!lastStep) return false;
+
+  const usedAnyTool = steps.some((step) => step.toolCalls.length > 0);
+  if (!usedAnyTool) return false;
+
+  const hasTextAnswer = lastStep.text.trim().length > 0;
+  const hasNewToolCalls = lastStep.toolCalls.length > 0;
+  return hasTextAnswer && !hasNewToolCalls;
 }
 
 let cachedModels: AiGatewayModel[] | null = null;
@@ -197,6 +229,7 @@ export async function POST(req: Request) {
     const webSearchEnabled = !!body.webSearchEnabled;
     const imageAspectRatio = body.imageAspectRatio ?? null;
     const imageSize = body.imageSize ?? null;
+    const lastUserContent = getLastUserContent(messages);
     console.log("[chat-debug] model string", modelId);
 
     const models = await getAiGatewayModelsCached();
@@ -273,6 +306,10 @@ export async function POST(req: Request) {
     // Prefer metadata capability, but still attach the tool when search is enabled
     // and the model supports tools. Some gateway model entries omit web_search pricing.
     const shouldAttachWebSearchTool = webSearchEnabled && supportsTools;
+    const looksLikeSportsPlayerQuery =
+      /\b(chelsea|premier league|football|soccer|player|best|top scorer|assists?)\b/i.test(
+        lastUserContent,
+      );
     if (webSearchEnabled && !hasWebSearch) {
       console.warn(
         `[chat-debug] model metadata does not report web-search capability for ${modelId}; attaching perplexity_search tool optimistically`,
@@ -280,7 +317,22 @@ export async function POST(req: Request) {
     }
     if (shouldAttachWebSearchTool) {
       tools.perplexity_search = gw.tools.perplexitySearch({
-        searchRecencyFilter: "month", // Search within the last month
+        searchRecencyFilter: looksLikeSportsPlayerQuery ? "year" : "month",
+        maxResults: 5,
+        maxTokensPerPage: 512,
+        maxTokens: 4000,
+        ...(looksLikeSportsPlayerQuery
+          ? {
+              searchDomainFilter: [
+                "espn.com",
+                "fbref.com",
+                "whoscored.com",
+                "sofascore.com",
+                "premierleague.com",
+                "chelseafc.com",
+              ],
+            }
+          : {}),
       });
     }
 
@@ -308,6 +360,11 @@ export async function POST(req: Request) {
         "If any prior message says you cannot browse, ignore it and use perplexity_search now.",
         "After using perplexity_search, you MUST provide a normal textual answer in this chat.",
         "Do not end the response with only tool calls or empty content.",
+        "Answer the user's question directly in the first sentence.",
+        "Keep responses concise: 1 short answer + up to 3 brief evidence bullets.",
+        "Include up to 3 source links only.",
+        "Do NOT dump raw tables, transcripts, or long copied source text.",
+        "If search results are noisy or low quality, ignore them and use the best reputable sources you found.",
       ].join(" ");
     } else if (webSearchEnabled && !shouldAttachWebSearchTool) {
       // User enabled search but model doesn't support it
@@ -337,20 +394,6 @@ export async function POST(req: Request) {
     const systemPrompt = SYSTEM_PROMPT + webSearchContext + imageGenContext;
 
     // When user clearly asks for an image, force the model to call the image tool (stops "I can't attach PNG, here's SVG" responses).
-    const lastUserContent = (() => {
-      for (let i = messages.length - 1; i >= 0; i--) {
-        const m = messages[i];
-        if (m.role === "user" && Array.isArray(m.parts)) {
-          return m.parts
-            .filter(
-              (p): p is { type: "text"; text: string } => p.type === "text",
-            )
-            .map((p) => p.text)
-            .join("");
-        }
-      }
-      return "";
-    })();
     const looksLikeImageRequest =
       lastUserContent.length > 25 &&
       /(\b(image|picture|draw|illustration|generate|create a|render|photo|png|jpg|webp|prompt)\b|detailed.*illustration|natural history|watercolor|gouache)/i.test(
@@ -398,6 +441,10 @@ export async function POST(req: Request) {
 
     const modelMessages = await convertToModelMessages(messages);
     const maxSteps = shouldAttachWebSearchTool ? 6 : 3;
+    const stopWhen: StopCondition<ToolSet>[] =
+      hasTools && !shouldDisableTools
+        ? [stepCountIs(maxSteps), shouldStopAfterAnswer]
+        : [];
     const streamOptions = {
       model: modelInstance,
       system: systemPrompt,
@@ -414,8 +461,8 @@ export async function POST(req: Request) {
               toolChoice: { type: "tool" as const, toolName: "perplexity_search" },
             }
         : {}),
-      // Allow model to call tools (e.g. image_generation) and then stream the response.
-      ...(hasTools && !shouldDisableTools && { stopWhen: stepCountIs(maxSteps) }),
+      // Allow tool loops, but only stop early once we have a textual answer after tool use.
+      ...(stopWhen.length > 0 && { stopWhen }),
       onStepFinish: ({
         finishReason,
         toolCalls,
@@ -445,7 +492,7 @@ export async function POST(req: Request) {
       supportsTools,
       forceWebSearchTool,
       forceImageTool: !!forceImageTool,
-      hasStopWhen: "stopWhen" in streamOptions,
+      hasStopWhen: stopWhen.length > 0,
       maxSteps,
       hasSystemWebSearchInstruction: systemPrompt.includes("perplexity_search"),
       messageCount: modelMessages.length,
