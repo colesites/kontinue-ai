@@ -34,14 +34,162 @@ import {
 import { CheckIcon, ImageIcon, X } from "lucide-react";
 import { CiGlobe } from "react-icons/ci";
 import { FaPaperclip } from "react-icons/fa";
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { validateFile } from "@/lib/file-upload";
 import { AVAILABLE_MODELS } from "@/lib/models";
 import { useModelCapabilities } from "@/lib/use-model-capabilities";
 import { ModelCapabilityIcons } from "@/components/ai-elements/model-capability-icons";
 import { useIsProPlan } from "@/lib/use-is-pro-plan";
 import { PremiumModelBadge } from "@/components/ai-elements/premium-model-badge";
 import type { ChatInputProps } from "@/features/chat/types";
+
+function AttachmentPreview({
+  file,
+  onRemove,
+}: {
+  file: File;
+  onRemove: () => void;
+}) {
+  const fileExt = file.name.split(".").pop()?.toUpperCase() ?? "";
+  const isImage =
+    file.type.startsWith("image/") ||
+    /\.(png|jpe?g|webp|gif|bmp|svg|heic|heif)$/i.test(file.name);
+  const isVideo = file.type.startsWith("video/");
+  const isAudio = file.type.startsWith("audio/");
+  const isPdf =
+    file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  const isText =
+    file.type.startsWith("text/") ||
+    [
+      "application/json",
+      "application/xml",
+      "application/x-yaml",
+      "text/xml",
+    ].includes(file.type) ||
+    /\.(txt|md|markdown|csv|json|xml|yml|yaml|log|ini|conf|env|toml)$/i.test(
+      file.name,
+    );
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
+  const [textPreview, setTextPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isImage && !isVideo && !isAudio && !isPdf && !isText) {
+      setObjectUrl(null);
+      setImageError(false);
+      setTextPreview(null);
+      return;
+    }
+
+    try {
+      if (isImage || isVideo || isAudio || isPdf) {
+        const url = URL.createObjectURL(file);
+        setObjectUrl(url);
+        setImageError(false);
+        return () => URL.revokeObjectURL(url);
+      }
+    } catch {
+      setObjectUrl(null);
+      setImageError(true);
+    }
+  }, [file, isImage, isVideo, isAudio, isPdf, isText]);
+
+  useEffect(() => {
+    if (!isText) {
+      setTextPreview(null);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === "string" ? reader.result : "";
+      setTextPreview(text.slice(0, 800));
+    };
+    reader.onerror = () => setTextPreview(null);
+    reader.readAsText(file.slice(0, 2000));
+  }, [file, isText]);
+
+  return (
+    <div className="group relative flex min-w-[240px] max-w-[360px] items-center gap-3 rounded-xl border border-border/60 bg-muted/30 p-2.5 pr-9 shadow-sm">
+      {isImage && objectUrl && !imageError ? (
+        <img
+          src={objectUrl}
+          alt={file.name}
+          className="h-16 w-16 rounded-lg border border-border/60 object-cover"
+          onError={() => setImageError(true)}
+        />
+      ) : isVideo && objectUrl && !imageError ? (
+        <video
+          src={objectUrl}
+          className="h-16 w-16 rounded-lg border border-border/60 object-cover"
+          muted
+          playsInline
+          preload="metadata"
+          onError={() => setImageError(true)}
+        />
+      ) : isPdf && objectUrl && !imageError ? (
+        <embed
+          src={objectUrl}
+          type="application/pdf"
+          className="h-20 w-16 rounded-lg border border-border/60 bg-background/80"
+          onError={() => setImageError(true)}
+        />
+      ) : isText ? (
+        <div className="flex h-20 w-16 items-center justify-center rounded-lg border border-border/60 bg-background/80 text-muted-foreground">
+          <span className="text-[10px] font-semibold tracking-wide text-muted-foreground/80">
+            TEXT
+          </span>
+        </div>
+      ) : isAudio && objectUrl && !imageError ? (
+        <div className="flex h-16 w-16 flex-col items-center justify-center rounded-lg border border-border/60 bg-background/80 text-muted-foreground">
+          <ImageIcon className="h-5 w-5" />
+          <span className="mt-1 text-[10px] font-semibold tracking-wide text-muted-foreground/80">
+            AUDIO
+          </span>
+        </div>
+      ) : (
+        <div className="flex h-16 w-16 flex-col items-center justify-center rounded-lg border border-border/60 bg-background/80 text-muted-foreground">
+          <ImageIcon className="h-5 w-5" />
+          <span className="mt-1 text-[10px] font-semibold tracking-wide text-muted-foreground/80">
+            {fileExt || "FILE"}
+          </span>
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-medium text-foreground">
+          {file.name}
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {(file.size / 1024).toFixed(1)}KB
+        </div>
+        {isText && textPreview && (
+          <div className="mt-2 line-clamp-3 whitespace-pre-wrap rounded-md border border-border/60 bg-background/70 px-2 py-1 text-[11px] leading-snug text-muted-foreground">
+            {textPreview}
+          </div>
+        )}
+        {isAudio && objectUrl && !imageError && (
+          <audio
+            src={objectUrl}
+            controls
+            preload="metadata"
+            className="mt-2 h-8 w-full"
+            onError={() => setImageError(true)}
+          />
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="absolute right-2 top-2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+        title="Remove file"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
 
 const IMAGE_ASPECT_OPTIONS: { value: string; label: string }[] = [
   { value: "auto", label: "Auto" },
@@ -191,7 +339,27 @@ export function ChatInput({
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files || []);
-      setAttachedFiles((prev) => [...prev, ...files]);
+      if (files.length === 0) return;
+
+      const validFiles: File[] = [];
+      let rejectedCount = 0;
+      for (const file of files) {
+        const error = validateFile(file);
+        if (error) {
+          rejectedCount += 1;
+          toast.error(`${file.name}: ${error}`);
+          continue;
+        }
+        validFiles.push(file);
+      }
+
+      if (validFiles.length > 0) {
+        setAttachedFiles((prev) => [...prev, ...validFiles]);
+      }
+      if (rejectedCount > 0 && validFiles.length === 0) {
+        toast.error("No files were attached.");
+      }
+
       // Reset input so the same file can be selected again
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -245,38 +413,13 @@ export function ChatInput({
           <PromptInputBody>
             <PromptInputTextarea ref={textareaRef} />
             {attachedFiles.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2 px-1">
+              <div className="mt-3 flex flex-wrap gap-3 px-1">
                 {attachedFiles.map((file, index) => (
-                  <div
+                  <AttachmentPreview
                     key={`${file.name}-${index}`}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-muted/50 border border-border/50 text-xs group hover:bg-muted transition-colors"
-                  >
-                    <span className="text-muted-foreground">
-                      {file.type.startsWith("image/")
-                        ? "🖼️"
-                        : file.type.startsWith("video/")
-                          ? "🎥"
-                          : file.type.startsWith("audio/")
-                            ? "🎵"
-                            : file.type === "application/pdf"
-                              ? "📄"
-                              : "📎"}
-                    </span>
-                    <span className="text-foreground max-w-[150px] truncate">
-                      {file.name}
-                    </span>
-                    <span className="text-muted-foreground/70">
-                      ({(file.size / 1024).toFixed(1)}KB)
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(index)}
-                      className="ml-1 p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                      title="Remove file"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
+                    file={file}
+                    onRemove={() => removeFile(index)}
+                  />
                 ))}
               </div>
             )}
@@ -385,7 +528,7 @@ export function ChatInput({
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept="image/*,video/*,audio/*,.pdf,.txt,.doc,.docx,.csv,.json,.xml,.md"
+                accept="image/*,text/*,application/json,application/xml,application/x-yaml,text/xml,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,video/mp4,video/webm,video/quicktime,audio/mpeg,audio/mp4,audio/aac,audio/wav,audio/ogg,audio/webm,audio/flac"
                 onChange={handleFileSelect}
                 className="hidden"
               />

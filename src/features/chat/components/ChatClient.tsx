@@ -880,7 +880,7 @@ export function ChatClient() {
   return (
     <div className="relative flex min-h-full flex-col bg-background">
       <div className="flex-1">
-        <div className="mx-auto w-full max-w-4xl px-4 pb-[200px]">
+        <div className="mx-auto w-full max-w-4xl px-4 pb-[150px]">
           {displayMessages.map((message, index) => (
             <ChatMessage
               key={message.id}
@@ -924,7 +924,7 @@ export function ChatClient() {
 
       <div
         data-sidebar-state={sidebarState}
-        className="pointer-events-none fixed bottom-0 z-40 px-4 pb-6 transition-[left,width] duration-300"
+        className="pointer-events-none fixed bottom-0 z-40 px-4 pb-5 transition-[left,width] duration-300"
         style={{
           left:
             !isSidebarMobile && sidebarState === "expanded"

@@ -2,15 +2,32 @@ import { auth } from "@clerk/nextjs/server";
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 
-// Max file size: 10MB
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+// Max file size: 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 // Allowed MIME types
 const ALLOWED_TYPES = [
   "image/png",
   "image/jpeg",
   "image/webp",
+  "image/svg+xml",
   "application/pdf",
+  "application/json",
+  "application/xml",
+  "text/xml",
+  "application/x-yaml",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/aac",
+  "audio/wav",
+  "audio/ogg",
+  "audio/webm",
+  "audio/flac",
 ];
 
 export async function POST(request: Request) {
@@ -43,17 +60,19 @@ export async function POST(request: Request) {
     // Validate file size
     if (blob.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: "File size exceeds 10MB limit" },
+        { error: "File size exceeds 5MB limit" },
         { status: 400 }
       );
     }
 
     // Validate content type
     const contentType = blob.type;
-    if (!ALLOWED_TYPES.includes(contentType)) {
+    const isText = contentType.startsWith("text/");
+    if (!isText && !ALLOWED_TYPES.includes(contentType)) {
       return NextResponse.json(
         {
-          error: "Invalid file type. Allowed: PNG, JPEG, WebP, PDF",
+          error:
+            "Invalid file type. Allowed: images, PDF, MP4, WebM, MOV, MP3, M4A, AAC, WAV, OGG, FLAC, and text files",
           allowedTypes: ALLOWED_TYPES,
         },
         { status: 400 }

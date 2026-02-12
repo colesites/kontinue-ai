@@ -22,10 +22,10 @@ export interface UploadError {
  * @returns Promise with uploaded file metadata
  */
 export async function uploadFile(file: File): Promise<UploadedFile> {
-  // Validate file size on client (10MB max)
-  const MAX_SIZE = 10 * 1024 * 1024;
+  // Validate file size on client (5MB max)
+  const MAX_SIZE = 5 * 1024 * 1024;
   if (file.size > MAX_SIZE) {
-    throw new Error("File size exceeds 10MB limit");
+    throw new Error("File size exceeds 5MB limit");
   }
 
   // Validate file type on client
@@ -33,11 +33,29 @@ export async function uploadFile(file: File): Promise<UploadedFile> {
     "image/png",
     "image/jpeg",
     "image/webp",
+    "image/svg+xml",
     "application/pdf",
+    "application/json",
+    "application/xml",
+    "text/xml",
+    "application/x-yaml",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "video/mp4",
+    "video/webm",
+    "video/quicktime",
+    "audio/mpeg",
+    "audio/mp4",
+    "audio/aac",
+    "audio/wav",
+    "audio/ogg",
+    "audio/webm",
+    "audio/flac",
   ];
-  if (!allowedTypes.includes(file.type)) {
+  const isText = file.type.startsWith("text/");
+  if (!isText && !allowedTypes.includes(file.type)) {
     throw new Error(
-      "Invalid file type. Allowed: PNG, JPEG, WebP, PDF"
+      "Invalid file type. Allowed: images, PDF, MP4, WebM, MOV, MP3, M4A, AAC, WAV, OGG, FLAC, and text files"
     );
   }
 
@@ -154,20 +172,38 @@ export function getFileTypeEmoji(contentType: string): string {
  * @returns Error message if invalid, null if valid
  */
 export function validateFile(file: File): string | null {
-  const MAX_SIZE = 10 * 1024 * 1024;
+  const MAX_SIZE = 5 * 1024 * 1024;
   const allowedTypes = [
     "image/png",
     "image/jpeg",
     "image/webp",
+    "image/svg+xml",
     "application/pdf",
+    "application/json",
+    "application/xml",
+    "text/xml",
+    "application/x-yaml",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "video/mp4",
+    "video/webm",
+    "video/quicktime",
+    "audio/mpeg",
+    "audio/mp4",
+    "audio/aac",
+    "audio/wav",
+    "audio/ogg",
+    "audio/webm",
+    "audio/flac",
   ];
 
   if (file.size > MAX_SIZE) {
-    return "File size exceeds 10MB limit";
+    return "File size exceeds 5MB limit";
   }
 
-  if (!allowedTypes.includes(file.type)) {
-    return "Invalid file type. Allowed: PNG, JPEG, WebP, PDF";
+  const isText = file.type.startsWith("text/");
+  if (!isText && !allowedTypes.includes(file.type)) {
+    return "Invalid file type. Allowed: images, PDF, MP4, WebM, MOV, MP3, M4A, AAC, WAV, OGG, FLAC, and text files";
   }
 
   return null;
