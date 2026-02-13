@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Loader2, SendHorizontal } from "lucide-react";
+import { IoStop } from "react-icons/io5";
 import { cn } from "@/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -192,14 +193,20 @@ export function PromptInputButton({
   );
 }
 
-export function PromptInputSubmit({ status }: { status?: string }) {
+export function PromptInputSubmit({
+  status,
+  onStop,
+}: {
+  status?: string;
+  onStop?: () => void;
+}) {
   const { onSubmit, value, isLoading } = usePromptInput();
   const canSend = !!value.trim() && !isLoading;
 
   return (
     <Button
-      onClick={onSubmit}
-      disabled={!canSend}
+      onClick={isLoading ? onStop : onSubmit}
+      disabled={isLoading ? !onStop : !canSend}
       size="icon"
       className={cn(
         "h-8 w-8 rounded-lg transition-all",
@@ -209,7 +216,11 @@ export function PromptInputSubmit({ status }: { status?: string }) {
       )}
     >
       {isLoading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
+        onStop ? (
+          <IoStop className="h-4 w-4" />
+        ) : (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        )
       ) : (
         <SendHorizontal className="h-4 w-4" />
       )}

@@ -105,6 +105,7 @@ export function ChatClient() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const append = (chatHelpers as any).append;
   const sendMessage = chatHelpers.sendMessage;
+  const stop = chatHelpers.stop;
   const setMessages = chatHelpers.setMessages;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const regenerate = (chatHelpers as any).regenerate as
@@ -1032,6 +1033,7 @@ export function ChatClient() {
           <ChatInput
             onSend={handleSend}
             isLoading={isLoading}
+            onStop={stop}
             disabled={false}
             model={selectedModel}
             onModelChange={(next) => setUserSelectedModel(next)}

@@ -2,6 +2,7 @@ interface ChatInputProps {
   onSend: (message: string, files?: File[]) => void;
   isLoading?: boolean;
   disabled?: boolean;
+  onStop?: () => void;
   model: string;
   onModelChange: (modelId: string) => void;
   webSearchEnabled?: boolean;

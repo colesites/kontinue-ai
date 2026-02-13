@@ -305,6 +305,7 @@ export function ChatInput({
   onSend,
   isLoading,
   disabled,
+  onStop,
   model,
   onModelChange,
   webSearchEnabled = false,
@@ -588,7 +589,7 @@ export function ChatInput({
                 </div>
               )}
             </PromptInputTools>
-            <PromptInputSubmit />
+            <PromptInputSubmit onStop={onStop} />
           </PromptInputFooter>
         </PromptInput>
       </PromptInputProvider>
