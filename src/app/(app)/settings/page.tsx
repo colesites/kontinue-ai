@@ -237,7 +237,9 @@ export default function SettingsPage() {
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Link
-                    href="/settings/privacy-policy"
+                    href="https://kontinueai.com/legal/privacy-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="rounded-xl border border-border/60 bg-background/70 p-4 transition-colors hover:bg-background"
                   >
                     <p className="text-sm font-medium">Privacy Policy</p>
@@ -249,7 +251,9 @@ export default function SettingsPage() {
                     </span>
                   </Link>
                   <Link
-                    href="/settings/terms-of-service"
+                    href="https://kontinueai.com/legal/terms-of-service"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="rounded-xl border border-border/60 bg-background/70 p-4 transition-colors hover:bg-background"
                   >
                     <p className="text-sm font-medium">Terms of Service</p>
