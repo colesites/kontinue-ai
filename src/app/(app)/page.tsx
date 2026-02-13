@@ -1,105 +1,343 @@
 "use client";
-import { ArrowRight, Copy, Sparkles, Link2 } from "lucide-react";
+
+import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
+import { useAction, useMutation } from "convex/react";
+import {
+  Copy,
+  Link2,
+  Loader2,
+  Sparkles,
+  ArrowUpRight,
+} from "lucide-react";
+import { toast } from "sonner";
 import {
   HowToModal,
   HowToButton,
 } from "@/features/import/components/HowToModal";
-import { ImportForm } from "@/features/import/components/ImportForm";
+import { ChatInput } from "@/features/chat/components/ChatInput";
+import { useSidebar } from "@/components/ui/sidebar";
+import { api } from "../../../convex/_generated/api";
+import {
+  Provider,
+  detectProvider,
+  getProviderColor,
+  getProviderDisplayName,
+} from "@/utils/url-safety";
+import { useIsProPlan } from "@/lib/use-is-pro-plan";
+import { getDefaultModelForPlan, getModelById } from "@/lib/models";
+import { savePendingChatDraft } from "@/lib/pending-chat-draft";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
-export default function ImportPage() {
+type ScrapedImportMessage = {
+  role: "system" | "user" | "assistant";
+  content: string;
+};
+
+const MODEL_PROVIDER_MAP: Record<string, Provider> = {
+  openai: "chatgpt",
+  anthropic: "claude",
+  google: "gemini",
+  deepseek: "unknown",
+  minimax: "unknown",
+  mistral: "mistral",
+  perplexity: "perplexity",
+  zai: "unknown",
+  alibaba: "unknown",
+};
+
+export default function HomePage() {
+  const router = useRouter();
+  const { state: sidebarState, isMobile: isSidebarMobile } = useSidebar();
+  const { user } = useUser();
+  const isPro = useIsProPlan();
+  const defaultModel = useMemo(() => getDefaultModelForPlan(isPro).id, [isPro]);
+  const createChat = useMutation(api.chats.createChat);
+  const scrapeUrl = useAction(api.firecrawl.scrapeUrl);
+
+  const [selectedModel, setSelectedModel] = useState(defaultModel);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [imageAspectRatio, setImageAspectRatio] = useState<string>("auto");
+  const [imageSize, setImageSize] = useState<string | null>(null);
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
+
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+
+  const firstName = user?.firstName?.trim() || "there";
+  const importProvider = useMemo(() => detectProvider(importUrl), [importUrl]);
+
+  const startChatFromPrompt = useCallback(
+    async (prompt: string, files?: File[]) => {
+      if (isCreatingChat || !prompt.trim()) return;
+      setIsCreatingChat(true);
+
+      try {
+        const model = getModelById(selectedModel);
+        const provider = model
+          ? (MODEL_PROVIDER_MAP[model.provider] ?? "unknown")
+          : "unknown";
+        const title = prompt.trim().slice(0, 60) || "New Conversation";
+
+        const chatId = await createChat({
+          title,
+          provider,
+          importMethod: "manual",
+          messages: [],
+        });
+
+        if (files?.length) {
+          toast.info(
+            "Attachments will be available once the chat opens. Please attach again if needed.",
+          );
+        }
+
+        savePendingChatDraft(String(chatId), {
+          text: prompt,
+          model: selectedModel,
+          webSearchEnabled,
+          imageAspectRatio,
+          imageSize,
+        });
+
+        router.push(`/chat/${chatId}`);
+      } catch (err: unknown) {
+        const data = (err as { data?: { message?: string } })?.data;
+        const message =
+          data?.message ||
+          (err instanceof Error ? err.message : "Failed to start chat");
+        toast.error(message);
+      } finally {
+        setIsCreatingChat(false);
+      }
+    },
+    [
+      createChat,
+      imageAspectRatio,
+      imageSize,
+      isCreatingChat,
+      router,
+      selectedModel,
+      webSearchEnabled,
+    ],
+  );
+
+  const handleImport = useCallback(async () => {
+    if (!importUrl.trim()) {
+      toast.error("Please paste a shared link.");
+      return;
+    }
+
+    try {
+      const urlObj = new URL(importUrl.trim());
+      if (!["http:", "https:"].includes(urlObj.protocol)) {
+        toast.error("Please enter a valid HTTP/HTTPS URL.");
+        return;
+      }
+    } catch {
+      toast.error("Please enter a valid URL.");
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const result = await scrapeUrl({ url: importUrl.trim() });
+      const messages = (result.messages ?? []) as ScrapedImportMessage[];
+      if (messages.length === 0) {
+        toast.error("Could not extract messages from this link.");
+        return;
+      }
+
+      const chatId = await createChat({
+        title: result.title || "Imported Chat",
+        provider: importProvider || "unknown",
+        sourceUrl: importUrl.trim(),
+        importMethod: "automatic",
+        messages,
+      });
+
+      setImportUrl("");
+      setImportModalOpen(false);
+      router.push(`/chat/${chatId}?imported=true`);
+    } catch (err: unknown) {
+      const data = (err as { data?: { message?: string } })?.data;
+      const message =
+        data?.message ||
+        (err instanceof Error ? err.message : "Failed to import chat");
+      toast.error(message);
+    } finally {
+      setIsImporting(false);
+    }
+  }, [createChat, importProvider, importUrl, router, scrapeUrl]);
+
   return (
     <>
       <HowToModal />
 
-      <div className="flex-1">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row items-start justify-between gap-6 mb-10">
-            <div>
-              <div className="inline-flex items-center gap-2">
-                <img
-                  src="/continue-ai-logo.png"
-                  alt="Continue AI"
-                  className="w-10 h-10 rounded-xl"
-                />
-                <h1 className="text-2xl sm:text-3xl font-semibold text-foreground">
-                  Continue AI
-                </h1>
-              </div>
-              <p className="text-muted-foreground mt-2 max-w-xl">
-                Continue any conversation by pasting a shared link.
-              </p>
-            </div>
-            <div className="hidden sm:block pt-2">
+      <div className="relative flex h-full flex-col">
+        <div className="flex-1 overflow-y-auto pb-56">
+          <div className="mx-auto flex min-h-[calc(100dvh-10rem)] w-full max-w-3xl flex-col items-center justify-center px-4 pt-16 text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary/80">
+              Continue AI
+            </p>
+            <h1 className="mt-4 text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-5xl">
+              How can I help you, {firstName}?
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base">
+              Ask anything to start a new chat, or import a shared link from another AI app.
+            </p>
+
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <HowToButton />
-            </div>
-          </div>
+              <Dialog open={importModalOpen} onOpenChange={setImportModalOpen}>
+                <DialogTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-lg border border-border/70 bg-card/70 px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-card"
+                  >
+                    <ArrowUpRight className="h-4 w-4 text-primary" />
+                    Import shared link
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Import conversation</DialogTitle>
+                    <DialogDescription>
+                      Paste a shared link and continue the conversation in Continue AI.
+                    </DialogDescription>
+                  </DialogHeader>
 
-          <div className="sm:hidden mb-8">
-            <HowToButton />
-          </div>
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        type="url"
+                        value={importUrl}
+                        onChange={(e) => setImportUrl(e.target.value)}
+                        placeholder="https://..."
+                        className="w-full rounded-lg border border-input bg-background py-2.5 pl-9 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+                      />
+                    </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-            {/* Left: steps + providers */}
-            <div className="lg:col-span-2">
-              <div className="rounded-2xl border border-border bg-card p-6">
-                <p className="text-sm font-medium text-card-foreground">
-                  How it works
-                </p>
-                <div className="mt-4 space-y-4">
-                  <Step
-                    icon={<Copy size={16} />}
-                    title="Get a shared link"
-                    description="Open your chat in ChatGPT, Claude, or Gemini and create a shared link."
-                  />
-                  <Step
-                    icon={<Link2 size={16} />}
-                    title="Paste link below"
-                    description="Paste the URL into the box. We will automatically scrape and import the history."
-                  />
-                  <Step
-                    icon={<Sparkles size={16} />}
-                    title="Continue"
-                    description="Pick up right where you left off with any model."
-                  />
-                </div>
-
-                <div className="mt-6 pt-6 border-t border-border">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                    Works with
-                  </p>
-                  <div className="mt-3 flex items-center gap-3 flex-wrap">
-                    <ProviderPill name="ChatGPT" color="#10a37f" />
-                    <ProviderPill name="Claude" color="#cc785c" />
-                    <ProviderPill name="Gemini" color="#4285f4" />
-                    <ProviderPill name="T3 Chat" color="#f8e6f4" />
-                    <ProviderPill name="Perplexity" color="#20b8cd" />
-                    <ProviderPill name="Mistral" color="#ffffff" />
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Detected provider</span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-md border px-2 py-1",
+                          importProvider !== "unknown"
+                            ? "border-primary/30 text-primary"
+                            : "border-border text-muted-foreground",
+                        )}
+                      >
+                        <span
+                          className="h-1.5 w-1.5 rounded-full"
+                          style={{ backgroundColor: getProviderColor(importProvider) }}
+                        />
+                        {getProviderDisplayName(importProvider)}
+                      </span>
+                    </div>
                   </div>
-                </div>
+
+                  <DialogFooter>
+                    <button
+                      type="button"
+                      onClick={() => setImportModalOpen(false)}
+                      disabled={isImporting}
+                      className="rounded-lg border border-border/70 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleImport}
+                      disabled={isImporting}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+                    >
+                      {isImporting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Importing...
+                        </>
+                      ) : (
+                        "Import chat"
+                      )}
+                    </button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <div className="mt-10 w-full rounded-2xl border border-border/70 bg-card/60 p-5 text-left shadow-sm">
+              <p className="text-sm font-medium text-foreground">How it works</p>
+              <div className="mt-4 space-y-3">
+                <Step
+                  icon={<Copy size={15} />}
+                  title="Start from chat input"
+                  description="Type your prompt below. A new conversation opens instantly."
+                />
+                <Step
+                  icon={<Link2 size={15} />}
+                  title="Import when needed"
+                  description="Use the import button to paste a shared link in a modal."
+                />
+                <Step
+                  icon={<Sparkles size={15} />}
+                  title="Continue naturally"
+                  description="Pick your model and keep going with full context."
+                />
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <ProviderPill name="ChatGPT" color="#10a37f" />
+                <ProviderPill name="Claude" color="#cc785c" />
+                <ProviderPill name="Gemini" color="#4285f4" />
+                <ProviderPill name="T3 Chat" color="#f8e6f4" />
+                <ProviderPill name="Perplexity" color="#20b8cd" />
+                <ProviderPill name="Mistral" color="#ffffff" />
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Right: import card */}
-            <div className="lg:col-span-3">
-              <div className="rounded-2xl border border-border bg-card p-6">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-card-foreground">
-                      Import Chat
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Paste a shared link to automatically import your
-                      conversation history.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5">
-                  <ImportForm />
-                </div>
-              </div>
-            </div>
+        <div
+          data-sidebar-state={sidebarState}
+          className="pointer-events-none fixed bottom-0 z-40 px-4 pb-5 transition-[left,width] duration-300"
+          style={{
+            left:
+              !isSidebarMobile && sidebarState === "expanded"
+                ? "var(--sidebar-width)"
+                : 0,
+            width:
+              !isSidebarMobile && sidebarState === "expanded"
+                ? "calc(100vw - var(--sidebar-width))"
+                : "100vw",
+          }}
+        >
+          <div className="pointer-events-auto relative mx-auto w-full max-w-3xl">
+            <ChatInput
+              onSend={startChatFromPrompt}
+              isLoading={isCreatingChat}
+              disabled={false}
+              model={selectedModel}
+              onModelChange={setSelectedModel}
+              webSearchEnabled={webSearchEnabled}
+              onWebSearchToggle={() => setWebSearchEnabled((prev) => !prev)}
+              imageAspectRatio={imageAspectRatio}
+              imageSize={imageSize}
+              onImageAspectRatioChange={setImageAspectRatio}
+              onImageSizeChange={setImageSize}
+            />
           </div>
         </div>
       </div>
@@ -118,12 +356,12 @@ function Step({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="w-8 h-8 rounded-lg border border-border bg-muted text-muted-foreground flex items-center justify-center shrink-0">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/70 bg-muted/40 text-muted-foreground">
         {icon}
       </div>
       <div className="min-w-0">
         <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
       </div>
     </div>
   );
@@ -131,11 +369,8 @@ function Step({
 
 function ProviderPill({ name, color }: { name: string; color: string }) {
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-3 py-1 text-xs text-secondary-foreground">
-      <span
-        className="w-1.5 h-1.5 rounded-full"
-        style={{ backgroundColor: color }}
-      />
+    <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/40 px-3 py-1 text-xs text-secondary-foreground">
+      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
       <span>{name}</span>
     </div>
   );

@@ -19,6 +19,7 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { useIsProPlan } from "@/lib/use-is-pro-plan";
 import { useModelCapabilities } from "@/lib/use-model-capabilities";
 import { useChatContext } from "@/contexts/ChatContext";
+import { consumePendingChatDraft } from "@/lib/pending-chat-draft";
 
 export function ChatClient() {
   const params = useParams();
@@ -41,6 +42,7 @@ export function ChatClient() {
   const lastSavedAssistantIdRef = useRef<string | null>(null);
   const savedGeneratedImagesByAssistantIdRef = useRef<Set<string>>(new Set());
   const hasSeededRef = useRef(false);
+  const hasConsumedPendingDraftRef = useRef(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [persistedImageUrlsByMessageId, setPersistedImageUrlsByMessageId] =
     useState<Record<string, string[]>>({});
@@ -678,81 +680,117 @@ export function ChatClient() {
     }
   }, [status, isImageModel, lastMessageIsImageRequest, displayMessages]);
 
-  const handleSend = async (content: string, files?: File[]) => {
-    // Lock the model for this chat session once the user sends their first message.
-    if (userSelectedModel === null) {
-      setUserSelectedModel(selectedModel);
-    }
+  const handleSend = useCallback(
+    async (content: string, files?: File[]) => {
+      // Lock the model for this chat session once the user sends their first message.
+      if (userSelectedModel === null) {
+        setUserSelectedModel(selectedModel);
+      }
 
-    // Reset saved tracking for new stream
-    lastSavedAssistantIdRef.current = null;
+      // Reset saved tracking for new stream
+      lastSavedAssistantIdRef.current = null;
 
-    // Convert files to data URLs if provided
-    let fileDataUrls: string[] = [];
-    if (files && files.length > 0) {
+      // Convert files to data URLs if provided
+      let fileDataUrls: string[] = [];
+      if (files && files.length > 0) {
+        try {
+          fileDataUrls = await Promise.all(
+            files.map(
+              (file) =>
+                new Promise<string>((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.onerror = reject;
+                  reader.readAsDataURL(file);
+                }),
+            ),
+          );
+        } catch {
+          toast.error("Failed to process attached files.");
+          return;
+        }
+      }
+
+      // First, persist user message to Convex
       try {
-        fileDataUrls = await Promise.all(
-          files.map(
-            (file) =>
-              new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result as string);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-              }),
-          ),
-        );
-      } catch (err) {
-        toast.error("Failed to process attached files.");
-        return;
+        await addMessage({
+          chatId,
+          role: "user",
+          content,
+        });
+      } catch (err: unknown) {
+        const data = (err as { data?: { code?: string; message?: string } })
+          ?.data;
+        if (data?.code === "RATE_LIMIT_RPM" || data?.code === "RATE_LIMIT_RPD") {
+          toast.error(data.message ?? "Rate limit reached. Please try again.");
+          return;
+        }
+        throw err;
       }
-    }
 
-    // First, persist user message to Convex
-    try {
-      await addMessage({
-        chatId,
-        role: "user",
-        content,
+      // Send to AI - for now, file attachments are passed as data URLs in the text
+      // In the future, we can enhance this to use proper multimodal parts
+      let messageContent = content;
+      if (fileDataUrls.length > 0) {
+        messageContent = `${content}\n\n[User attached ${files!.length} file(s): ${files!.map((f) => f.name).join(", ")}]`;
+      }
+
+      console.log("[chat-client-debug] sending message options", {
+        model: selectedModel,
+        webSearchEnabled,
+        imageAspectRatio,
+        imageSize,
       });
-    } catch (err: unknown) {
-      const data = (err as { data?: { code?: string; message?: string } })
-        ?.data;
-      if (data?.code === "RATE_LIMIT_RPM" || data?.code === "RATE_LIMIT_RPD") {
-        toast.error(data.message ?? "Rate limit reached. Please try again.");
-        return;
-      }
-      throw err;
-    }
 
-    // Send to AI - for now, file attachments are passed as data URLs in the text
-    // In the future, we can enhance this to use proper multimodal parts
-    let messageContent = content;
-    if (fileDataUrls.length > 0) {
-      messageContent = `${content}\n\n[User attached ${files!.length} file(s): ${files!.map((f) => f.name).join(", ")}]`;
-    }
-
-    console.log("[chat-client-debug] sending message options", {
-      model: selectedModel,
-      webSearchEnabled,
+      sendMessage(
+        {
+          text: messageContent,
+        },
+        {
+          body: {
+            model: selectedModel,
+            webSearchEnabled,
+            imageAspectRatio: imageAspectRatio || undefined,
+            imageSize: imageSize || undefined,
+          },
+        },
+      );
+    },
+    [
+      addMessage,
+      chatId,
       imageAspectRatio,
       imageSize,
-    });
+      selectedModel,
+      sendMessage,
+      userSelectedModel,
+      webSearchEnabled,
+    ],
+  );
 
-    sendMessage(
-      {
-        text: messageContent,
-      },
-      {
-        body: {
-          model: selectedModel,
-          webSearchEnabled,
-          imageAspectRatio: imageAspectRatio || undefined,
-          imageSize: imageSize || undefined,
-        },
-      },
-    );
-  };
+  useEffect(() => {
+    if (hasConsumedPendingDraftRef.current) return;
+    if (status !== "ready") return;
+
+    hasConsumedPendingDraftRef.current = true;
+    const pendingDraft = consumePendingChatDraft(String(chatId));
+    if (!pendingDraft?.text?.trim()) return;
+
+    if (pendingDraft.model) {
+      setUserSelectedModel(pendingDraft.model);
+    }
+    if (typeof pendingDraft.webSearchEnabled === "boolean") {
+      setWebSearchEnabled(pendingDraft.webSearchEnabled);
+    }
+    if (pendingDraft.imageAspectRatio) {
+      setImageAspectRatio(pendingDraft.imageAspectRatio);
+    }
+    if ("imageSize" in pendingDraft) {
+      setImageSize(pendingDraft.imageSize ?? null);
+    }
+
+    void handleSend(pendingDraft.text);
+  }, [chatId, handleSend, status]);
 
   const retryAssistant = useCallback(
     (messageId: string, modelOverride?: string) => {

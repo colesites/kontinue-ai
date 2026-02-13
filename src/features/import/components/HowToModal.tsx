@@ -115,7 +115,7 @@ function Step({
       <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center text-primary shrink-0">
         {icon}
       </div>
-      <div>
+      <div className="text-left">
         <p className="font-medium text-foreground">{title}</p>
         <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
       </div>
@@ -141,7 +141,7 @@ export function HowToButton() {
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setIsOpen(false)}
           />
-          <div className="relative w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
+          <div className="relative w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden text-left">
             <div className="h-1 bg-linear-to-r from-primary via-accent to-secondary" />
             <div className="p-6">
               <button
@@ -150,7 +150,7 @@ export function HowToButton() {
               >
                 <X size={18} />
               </button>
-              <div className="text-center mb-6">
+              <div className="mb-6">
                 <h2 className="text-xl font-bold text-foreground">
                   How it works
                 </h2>
