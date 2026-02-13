@@ -1,10 +1,30 @@
 "use client";
 
 import { cn } from "@/utils/cn";
-import { Copy, Check, Download, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Check, Copy, Download, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessageProps } from "@/features/chat/types";
 import { MessageContent } from "./MessageContent";
+import {
+  ModelSelector,
+  ModelSelectorContent,
+  ModelSelectorEmpty,
+  ModelSelectorGroup,
+  ModelSelectorInput,
+  ModelSelectorItem,
+  ModelSelectorList,
+  ModelSelectorName,
+  ModelSelectorTrigger,
+} from "@/components/ai-elements/model-selector";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { TfiReload } from "react-icons/tfi";
+import { HiSpeakerWave } from "react-icons/hi2";
 
 export function ChatMessage({
   role,
@@ -12,16 +32,50 @@ export function ChatMessage({
   imageParts = [],
   isImported,
   isStreaming,
+  onRetry,
+  onSwitchModel,
+  modelOptionsByProvider,
+  currentModelId,
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const [expandedImageIndex, setExpandedImageIndex] = useState<number | null>(
     null,
   );
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [switchModelOpen, setSwitchModelOpen] = useState(false);
+  const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const speechText = useMemo(() => {
+    if (!content) return "";
+    return content
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
+      .replace(/#+\s/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  }, [content]);
+
+  const handleSpeak = () => {
+    if (typeof window === "undefined" || !speechText) return;
+    const synth = window.speechSynthesis;
+    if (synth.speaking || synth.pending) {
+      synth.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(speechText);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    speechRef.current = utterance;
+    setIsSpeaking(true);
+    synth.speak(utterance);
   };
 
   const handleDownloadImage = async (src: string, index: number) => {
@@ -68,6 +122,13 @@ export function ChatMessage({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [expandedImageIndex]);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window === "undefined") return;
+      window.speechSynthesis.cancel();
+    };
+  }, []);
 
   return (
     <div
@@ -168,6 +229,91 @@ export function ChatMessage({
                 </>
               )}
             </button>
+            {!isUser && (
+              <>
+                <button
+                  onClick={handleSpeak}
+                  disabled={!speechText}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors",
+                    speechText
+                      ? "hover:bg-muted hover:text-foreground"
+                      : "opacity-50 cursor-not-allowed"
+                  )}
+                  title={isSpeaking ? "Stop reading" : "Read aloud"}
+                >
+                  <HiSpeakerWave className="h-3.5 w-3.5" />
+                  {isSpeaking ? "Stop" : "Speak"}
+                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 hover:bg-muted hover:text-foreground transition-colors"
+                      title="Retry options"
+                    >
+                      <TfiReload className="h-3.5 w-3.5" />
+                      Retry
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem
+                      onClick={onRetry}
+                      disabled={!onRetry}
+                    >
+                      Try again
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setSwitchModelOpen(true)}>
+                      Switch model
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <ModelSelector open={switchModelOpen} onOpenChange={setSwitchModelOpen}>
+                  <ModelSelectorTrigger asChild>
+                    <button className="hidden" aria-hidden="true" />
+                  </ModelSelectorTrigger>
+                  <ModelSelectorContent>
+                    <ModelSelectorInput placeholder="Search models..." />
+                    <ModelSelectorList>
+                      <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
+                      {!modelOptionsByProvider ||
+                      Object.keys(modelOptionsByProvider).length === 0 ? (
+                        <ModelSelectorItem disabled value="no-models">
+                          No models
+                        </ModelSelectorItem>
+                      ) : (
+                        Object.entries(modelOptionsByProvider).map(
+                          ([provider, models]) => (
+                            <ModelSelectorGroup key={provider}>
+                              <div className="px-2 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                                {provider}
+                              </div>
+                              {models.map((m) => (
+                                <ModelSelectorItem
+                                  key={m.id}
+                                  disabled={m.disabled}
+                                  onSelect={() => {
+                                    if (m.disabled) return;
+                                    onSwitchModel?.(m.id);
+                                    setSwitchModelOpen(false);
+                                  }}
+                                  value={m.name}
+                                >
+                                  <ModelSelectorName>
+                                    {m.name}
+                                  </ModelSelectorName>
+                                  {m.id === currentModelId ? " (current)" : ""}
+                                </ModelSelectorItem>
+                              ))}
+                            </ModelSelectorGroup>
+                          ),
+                        )
+                      )}
+                    </ModelSelectorList>
+                  </ModelSelectorContent>
+                </ModelSelector>
+              </>
+            )}
             {isImported && (
               <span className="text-[11px] px-2 py-1 rounded-md bg-muted/50 border border-border text-muted-foreground">
                 Imported

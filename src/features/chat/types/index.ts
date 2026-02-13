@@ -19,6 +19,18 @@ interface ChatMessageProps {
   imageParts?: string[];
   isImported?: boolean;
   isStreaming?: boolean;
+  onRetry?: () => void;
+  onSwitchModel?: (modelId: string) => void;
+  modelOptionsByProvider?: Record<
+    string,
+    Array<{
+      id: string;
+      name: string;
+      provider: string;
+      disabled?: boolean;
+    }>
+  >;
+  currentModelId?: string;
 }
 
 interface ImportedContextProps {

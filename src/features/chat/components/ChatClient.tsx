@@ -14,7 +14,7 @@ import { ChatMessage } from "@/features/chat/components/ChatMessage";
 import { ChatInput } from "@/features/chat/components/ChatInput";
 import { ImageGenerationLoader } from "@/features/chat/components/ImageGenerationLoader";
 import { uploadFile } from "@/lib/file-upload";
-import { getDefaultModelForPlan } from "@/lib/models";
+import { AVAILABLE_MODELS, getDefaultModelForPlan } from "@/lib/models";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useIsProPlan } from "@/lib/use-is-pro-plan";
 import { useModelCapabilities } from "@/lib/use-model-capabilities";
@@ -26,7 +26,7 @@ export function ChatClient() {
   const { setChatInfo, clearChatInfo } = useChatContext();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isPro = useIsProPlan();
-  const { getCapabilities } = useModelCapabilities();
+  const { getCapabilities, isPremium } = useModelCapabilities();
   const [userSelectedModel, setUserSelectedModel] = useState<string | null>(
     null,
   );
@@ -106,10 +106,38 @@ export function ChatClient() {
   const append = (chatHelpers as any).append;
   const sendMessage = chatHelpers.sendMessage;
   const setMessages = chatHelpers.setMessages;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const regenerate = (chatHelpers as any).regenerate as
+    | ((options?: { body?: Record<string, unknown> }) => void)
+    | undefined;
 
   const searchParams = useSearchParams();
   const router = useRouter();
   const hasTriggeredImportRef = useRef(false);
+  const modelOptionsByProvider = useMemo(() => {
+    return AVAILABLE_MODELS.reduce<Record<string, typeof AVAILABLE_MODELS>>(
+      (acc, m) => {
+        const provider = m.provider;
+        if (!acc[provider]) acc[provider] = [];
+        acc[provider].push(m);
+        return acc;
+      },
+      {},
+    );
+  }, []);
+
+  const modelOptionsWithAccess = useMemo(() => {
+    const next: Record<string, Array<{ id: string; name: string; provider: string; disabled?: boolean }>> = {};
+    for (const [provider, models] of Object.entries(modelOptionsByProvider)) {
+      next[provider] = models.map((m) => ({
+        id: m.id,
+        name: m.name,
+        provider: m.provider,
+        disabled: isPremium(m.id) && !isPro,
+      }));
+    }
+    return next;
+  }, [modelOptionsByProvider, isPremium, isPro]);
 
   useEffect(() => {
     // Only trigger if specifically requested via URL param
@@ -725,6 +753,41 @@ export function ChatClient() {
     );
   };
 
+  const retryAssistant = useCallback(
+    (messageId: string, modelOverride?: string) => {
+      if (typeof regenerate !== "function") return;
+      setMessages((prev) => {
+        const idx = prev.findIndex((m) => m.id === messageId);
+        if (idx <= 0) return prev;
+        let userIdx = -1;
+        for (let i = idx - 1; i >= 0; i -= 1) {
+          if (prev[i].role === "user") {
+            userIdx = i;
+            break;
+          }
+        }
+        if (userIdx === -1) return prev;
+        return prev.slice(0, userIdx + 1);
+      });
+      regenerate({
+        body: {
+          model: modelOverride ?? selectedModel,
+          webSearchEnabled,
+          imageAspectRatio: imageAspectRatio || undefined,
+          imageSize: imageSize || undefined,
+        },
+      });
+    },
+    [
+      regenerate,
+      setMessages,
+      selectedModel,
+      webSearchEnabled,
+      imageAspectRatio,
+      imageSize,
+    ],
+  );
+
   // Persist assistant messages and generated images when streaming completes.
   useEffect(() => {
     if (status !== "ready" || aiMessages.length === 0) return;
@@ -893,6 +956,23 @@ export function ChatClient() {
                 index === displayMessages.length - 1 &&
                 message.role === "assistant"
               }
+              onRetry={
+                message.role === "assistant"
+                  ? () => retryAssistant(message.id)
+                  : undefined
+              }
+              onSwitchModel={
+                message.role === "assistant"
+                  ? (modelId) => {
+                      setUserSelectedModel(modelId);
+                      retryAssistant(message.id, modelId);
+                    }
+                  : undefined
+              }
+              modelOptionsByProvider={
+                message.role === "assistant" ? modelOptionsWithAccess : undefined
+              }
+              currentModelId={selectedModel}
             />
           ))}
 
