@@ -88,6 +88,9 @@ type SpeechRecognitionInstance = {
 };
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
+const LANGUAGE_ROTATE_INTERVAL_MS = 5000;
+const MIN_CONFIDENCE_TO_LOCK_LANGUAGE = 0.72;
+const MIN_TRANSCRIPT_CHARS_TO_LOCK_WITHOUT_CONFIDENCE = 18;
 
 function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null {
   if (typeof window === "undefined") return null;
@@ -412,10 +415,15 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const languageRotateTimerRef = useRef<number | null>(null);
   const keepListeningRef = useRef(false);
   const languageCandidatesRef = useRef<string[]>([]);
   const languageIndexRef = useRef(0);
-  const hadConfidentResultRef = useRef(false);
+  const hasFinalResultRef = useRef(false);
+  const hasConfidenceScoreRef = useRef(false);
+  const bestConfidenceRef = useRef(0);
+  const finalTranscriptCharsRef = useRef(0);
+  const forceAdvanceLanguageRef = useRef(false);
   const speechBaseTextRef = useRef("");
   const speechFinalTextRef = useRef("");
   const { getCapabilities, isPremium } = useModelCapabilities();
@@ -425,6 +433,13 @@ export function ChatInput({
     [],
   );
 
+  const clearLanguageRotateTimer = useCallback(() => {
+    if (languageRotateTimerRef.current !== null) {
+      window.clearTimeout(languageRotateTimerRef.current);
+      languageRotateTimerRef.current = null;
+    }
+  }, []);
+
   const handleSubmit = () => {
     if (!inputValue.trim()) return;
     onSend(inputValue, attachedFiles.length > 0 ? attachedFiles : undefined);
@@ -432,6 +447,7 @@ export function ChatInput({
     setAttachedFiles([]);
     if (isListening) {
       keepListeningRef.current = false;
+      clearLanguageRotateTimer();
       recognitionRef.current?.stop();
       setIsListening(false);
       setActiveRecognitionLanguage(null);
@@ -466,10 +482,23 @@ export function ChatInput({
 
   const stopListening = useCallback(() => {
     keepListeningRef.current = false;
+    clearLanguageRotateTimer();
     recognitionRef.current?.stop();
     recognitionRef.current = null;
+    forceAdvanceLanguageRef.current = false;
     setIsListening(false);
     setActiveRecognitionLanguage(null);
+  }, [clearLanguageRotateTimer]);
+
+  const shouldKeepCurrentLanguage = useCallback(() => {
+    if (!hasFinalResultRef.current) return false;
+    if (hasConfidenceScoreRef.current) {
+      return bestConfidenceRef.current >= MIN_CONFIDENCE_TO_LOCK_LANGUAGE;
+    }
+    return (
+      finalTranscriptCharsRef.current >=
+      MIN_TRANSCRIPT_CHARS_TO_LOCK_WITHOUT_CONFIDENCE
+    );
   }, []);
 
   const startRecognitionWithLanguage = useCallback(
@@ -485,6 +514,13 @@ export function ChatInput({
       const language =
         languages[languageIndex] ||
         (typeof navigator !== "undefined" ? navigator.language : "en-US");
+
+      hasFinalResultRef.current = false;
+      hasConfidenceScoreRef.current = false;
+      bestConfidenceRef.current = 0;
+      finalTranscriptCharsRef.current = 0;
+      forceAdvanceLanguageRef.current = false;
+      clearLanguageRotateTimer();
 
       try {
         const recognition = new SpeechRecognitionCtor();
@@ -506,8 +542,18 @@ export function ChatInput({
 
             if (result.isFinal) {
               speechFinalTextRef.current = `${speechFinalTextRef.current} ${transcript}`.trim();
-              if (!alternative.confidence || alternative.confidence >= 0.45) {
-                hadConfidentResultRef.current = true;
+              hasFinalResultRef.current = true;
+              finalTranscriptCharsRef.current += transcript.length;
+              if (
+                typeof alternative.confidence === "number" &&
+                Number.isFinite(alternative.confidence) &&
+                alternative.confidence > 0
+              ) {
+                hasConfidenceScoreRef.current = true;
+                bestConfidenceRef.current = Math.max(
+                  bestConfidenceRef.current,
+                  alternative.confidence,
+                );
               }
             } else {
               interim = `${interim} ${transcript}`.trim();
@@ -527,12 +573,15 @@ export function ChatInput({
             return;
           }
           if (code === "no-speech") {
+            forceAdvanceLanguageRef.current =
+              languageIndexRef.current < languageCandidatesRef.current.length - 1;
             return;
           }
           toast.error("Voice input failed. Please try again.");
         };
 
         recognition.onend = () => {
+          clearLanguageRotateTimer();
           recognitionRef.current = null;
           if (!keepListeningRef.current) {
             setIsListening(false);
@@ -540,14 +589,27 @@ export function ChatInput({
             return;
           }
 
+          const hasNextLanguage =
+            languageIndexRef.current < languageCandidatesRef.current.length - 1;
+          const shouldAdvanceLanguage =
+            hasNextLanguage &&
+            (forceAdvanceLanguageRef.current || !shouldKeepCurrentLanguage());
           const nextIndex =
-            !hadConfidentResultRef.current &&
-            languageIndexRef.current < languageCandidatesRef.current.length - 1
+            shouldAdvanceLanguage
               ? languageIndexRef.current + 1
               : languageIndexRef.current;
-          hadConfidentResultRef.current = false;
+          forceAdvanceLanguageRef.current = false;
           void runRecognition(nextIndex);
         };
+
+        languageRotateTimerRef.current = window.setTimeout(() => {
+          if (!keepListeningRef.current) return;
+          if (recognitionRef.current !== recognition) return;
+          if (languageIndexRef.current >= languageCandidatesRef.current.length - 1) return;
+          if (shouldKeepCurrentLanguage()) return;
+          forceAdvanceLanguageRef.current = true;
+          recognition.stop();
+        }, LANGUAGE_ROTATE_INTERVAL_MS);
 
         recognition.start();
       } catch {
@@ -555,7 +617,7 @@ export function ChatInput({
         stopListening();
       }
     },
-    [setInputValue, stopListening],
+    [clearLanguageRotateTimer, setInputValue, shouldKeepCurrentLanguage, stopListening],
   );
 
   const toggleListening = useCallback(() => {
@@ -572,7 +634,11 @@ export function ChatInput({
     keepListeningRef.current = true;
     speechBaseTextRef.current = inputValue;
     speechFinalTextRef.current = "";
-    hadConfidentResultRef.current = false;
+    hasFinalResultRef.current = false;
+    hasConfidenceScoreRef.current = false;
+    bestConfidenceRef.current = 0;
+    finalTranscriptCharsRef.current = 0;
+    forceAdvanceLanguageRef.current = false;
     languageCandidatesRef.current = buildSpeechLanguageCandidates(preferredSpeechLanguage);
     languageIndexRef.current = 0;
     setIsListening(true);
@@ -589,10 +655,11 @@ export function ChatInput({
   useEffect(() => {
     return () => {
       keepListeningRef.current = false;
+      clearLanguageRotateTimer();
       recognitionRef.current?.stop();
       recognitionRef.current = null;
     };
-  }, []);
+  }, [clearLanguageRotateTimer]);
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
