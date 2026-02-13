@@ -34,6 +34,7 @@ import {
 import { CheckIcon, ImageIcon, X } from "lucide-react";
 import { CiGlobe } from "react-icons/ci";
 import { FaPaperclip } from "react-icons/fa";
+import { IoMicOutline } from "react-icons/io5";
 import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,93 @@ import { ModelCapabilityIcons } from "@/components/ai-elements/model-capability-
 import { useIsProPlan } from "@/lib/use-is-pro-plan";
 import { PremiumModelBadge } from "@/components/ai-elements/premium-model-badge";
 import type { ChatInputProps } from "@/features/chat/types";
+import {
+  getSavedSpeechLanguage,
+  SPEECH_AUTO_LANGUAGE,
+  SPEECH_LANGUAGE_OPTIONS,
+  SPEECH_LANGUAGE_CHANGED_EVENT,
+  SPEECH_LANGUAGE_STORAGE_KEY,
+} from "@/lib/speech-settings";
+
+type SpeechRecognitionAlternative = {
+  transcript: string;
+  confidence: number;
+};
+
+type SpeechRecognitionResult = {
+  isFinal: boolean;
+  length: number;
+  [index: number]: SpeechRecognitionAlternative;
+};
+
+type SpeechRecognitionResultList = {
+  length: number;
+  [index: number]: SpeechRecognitionResult;
+};
+
+type SpeechRecognitionEvent = Event & {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+};
+
+type SpeechRecognitionInstance = {
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  onstart: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: Event & { error?: string }) => void) | null;
+  onend: (() => void) | null;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
+
+function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null {
+  if (typeof window === "undefined") return null;
+  const withSpeech = window as Window & {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  };
+  return withSpeech.SpeechRecognition ?? withSpeech.webkitSpeechRecognition ?? null;
+}
+
+function buildSpeechLanguageCandidates(preferredLanguage: string): string[] {
+  const candidates: string[] = [];
+  const push = (value?: string | null) => {
+    if (!value) return;
+    if (!candidates.includes(value)) candidates.push(value);
+  };
+
+  if (preferredLanguage && preferredLanguage !== SPEECH_AUTO_LANGUAGE) {
+    push(preferredLanguage);
+  }
+
+  if (typeof navigator !== "undefined") {
+    push(navigator.language);
+    for (const language of navigator.languages ?? []) {
+      push(language);
+    }
+  }
+
+  for (const option of SPEECH_LANGUAGE_OPTIONS) {
+    if (option.value !== SPEECH_AUTO_LANGUAGE) {
+      push(option.value);
+    }
+  }
+
+  return candidates.length > 0 ? candidates : ["en-US"];
+}
+
+function mergeSpeechText(base: string, spoken: string): string {
+  const normalizedBase = base.trim();
+  const normalizedSpoken = spoken.trim();
+  if (!normalizedSpoken) return normalizedBase;
+  if (!normalizedBase) return normalizedSpoken;
+  return `${normalizedBase} ${normalizedSpoken}`;
+}
 
 function AttachmentPreview({
   file,
@@ -71,36 +159,27 @@ function AttachmentPreview({
     /\.(txt|md|markdown|csv|json|xml|yml|yaml|log|ini|conf|env|toml)$/i.test(
       file.name,
     );
-  const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
   const [textPreview, setTextPreview] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!isImage && !isVideo && !isAudio && !isPdf && !isText) {
-      setObjectUrl(null);
-      setImageError(false);
-      setTextPreview(null);
-      return;
-    }
-
+  const objectUrl = useMemo(() => {
+    if (!isImage && !isVideo && !isAudio && !isPdf) return null;
     try {
-      if (isImage || isVideo || isAudio || isPdf) {
-        const url = URL.createObjectURL(file);
-        setObjectUrl(url);
-        setImageError(false);
-        return () => URL.revokeObjectURL(url);
-      }
+      return URL.createObjectURL(file);
     } catch {
-      setObjectUrl(null);
-      setImageError(true);
+      return null;
     }
-  }, [file, isImage, isVideo, isAudio, isPdf, isText]);
+  }, [file, isImage, isVideo, isAudio, isPdf]);
 
   useEffect(() => {
-    if (!isText) {
-      setTextPreview(null);
-      return;
-    }
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [objectUrl]);
+
+  useEffect(() => {
+    if (!isText) return;
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -325,17 +404,195 @@ export function ChatInput({
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [isListening, setIsListening] = useState(false);
+  const [preferredSpeechLanguage, setPreferredSpeechLanguage] = useState(() =>
+    getSavedSpeechLanguage(),
+  );
+  const [activeRecognitionLanguage, setActiveRecognitionLanguage] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const keepListeningRef = useRef(false);
+  const languageCandidatesRef = useRef<string[]>([]);
+  const languageIndexRef = useRef(0);
+  const hadConfidentResultRef = useRef(false);
+  const speechBaseTextRef = useRef("");
+  const speechFinalTextRef = useRef("");
   const { getCapabilities, isPremium } = useModelCapabilities();
   const isPro = useIsProPlan();
+  const speechSupported = useMemo(
+    () => getSpeechRecognitionConstructor() !== null,
+    [],
+  );
 
   const handleSubmit = () => {
     if (!inputValue.trim()) return;
     onSend(inputValue, attachedFiles.length > 0 ? attachedFiles : undefined);
     setInputValue("");
     setAttachedFiles([]);
+    if (isListening) {
+      keepListeningRef.current = false;
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      setActiveRecognitionLanguage(null);
+    }
   };
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === SPEECH_LANGUAGE_STORAGE_KEY) {
+        setPreferredSpeechLanguage(getSavedSpeechLanguage());
+      }
+    };
+
+    const handleLanguageChange = (event: Event) => {
+      const customEvent = event as CustomEvent<string>;
+      setPreferredSpeechLanguage(customEvent.detail || getSavedSpeechLanguage());
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(
+      SPEECH_LANGUAGE_CHANGED_EVENT,
+      handleLanguageChange as EventListener,
+    );
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(
+        SPEECH_LANGUAGE_CHANGED_EVENT,
+        handleLanguageChange as EventListener,
+      );
+    };
+  }, []);
+
+  const stopListening = useCallback(() => {
+    keepListeningRef.current = false;
+    recognitionRef.current?.stop();
+    recognitionRef.current = null;
+    setIsListening(false);
+    setActiveRecognitionLanguage(null);
+  }, []);
+
+  const startRecognitionWithLanguage = useCallback(
+    function runRecognition(languageIndex: number) {
+      const SpeechRecognitionCtor = getSpeechRecognitionConstructor();
+      if (!SpeechRecognitionCtor) {
+        toast.error("Speech recognition is not supported in this browser.");
+        stopListening();
+        return;
+      }
+
+      const languages = languageCandidatesRef.current;
+      const language =
+        languages[languageIndex] ||
+        (typeof navigator !== "undefined" ? navigator.language : "en-US");
+
+      try {
+        const recognition = new SpeechRecognitionCtor();
+        recognitionRef.current = recognition;
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 3;
+        recognition.lang = language;
+        languageIndexRef.current = languageIndex;
+        setActiveRecognitionLanguage(language);
+
+        recognition.onresult = (event) => {
+          let interim = "";
+          for (let i = event.resultIndex; i < event.results.length; i += 1) {
+            const result = event.results[i];
+            const alternative = result[0];
+            const transcript = alternative?.transcript?.trim();
+            if (!transcript) continue;
+
+            if (result.isFinal) {
+              speechFinalTextRef.current = `${speechFinalTextRef.current} ${transcript}`.trim();
+              if (!alternative.confidence || alternative.confidence >= 0.45) {
+                hadConfidentResultRef.current = true;
+              }
+            } else {
+              interim = `${interim} ${transcript}`.trim();
+            }
+          }
+
+          const combinedTranscript = `${speechFinalTextRef.current} ${interim}`.trim();
+          setInputValue(mergeSpeechText(speechBaseTextRef.current, combinedTranscript));
+        };
+
+        recognition.onerror = (event) => {
+          const code = event.error ?? "unknown";
+          if (code === "aborted") return;
+          if (code === "not-allowed" || code === "service-not-allowed") {
+            toast.error("Microphone permission denied.");
+            stopListening();
+            return;
+          }
+          if (code === "no-speech") {
+            return;
+          }
+          toast.error("Voice input failed. Please try again.");
+        };
+
+        recognition.onend = () => {
+          recognitionRef.current = null;
+          if (!keepListeningRef.current) {
+            setIsListening(false);
+            setActiveRecognitionLanguage(null);
+            return;
+          }
+
+          const nextIndex =
+            !hadConfidentResultRef.current &&
+            languageIndexRef.current < languageCandidatesRef.current.length - 1
+              ? languageIndexRef.current + 1
+              : languageIndexRef.current;
+          hadConfidentResultRef.current = false;
+          void runRecognition(nextIndex);
+        };
+
+        recognition.start();
+      } catch {
+        toast.error("Could not start voice recognition.");
+        stopListening();
+      }
+    },
+    [setInputValue, stopListening],
+  );
+
+  const toggleListening = useCallback(() => {
+    if (!speechSupported) {
+      toast.error("Speech recognition is not supported in this browser.");
+      return;
+    }
+
+    if (isListening) {
+      stopListening();
+      return;
+    }
+
+    keepListeningRef.current = true;
+    speechBaseTextRef.current = inputValue;
+    speechFinalTextRef.current = "";
+    hadConfidentResultRef.current = false;
+    languageCandidatesRef.current = buildSpeechLanguageCandidates(preferredSpeechLanguage);
+    languageIndexRef.current = 0;
+    setIsListening(true);
+    void startRecognitionWithLanguage(0);
+  }, [
+    inputValue,
+    isListening,
+    preferredSpeechLanguage,
+    speechSupported,
+    startRecognitionWithLanguage,
+    stopListening,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      keepListeningRef.current = false;
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
+    };
+  }, []);
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -413,6 +670,11 @@ export function ChatInput({
         >
           <PromptInputBody>
             <PromptInputTextarea ref={textareaRef} />
+            {isListening && (
+              <div className="mt-2 px-1 text-xs text-primary/90">
+                Listening... {activeRecognitionLanguage ? `(${activeRecognitionLanguage})` : ""}
+              </div>
+            )}
             {attachedFiles.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-3 px-1">
                 {attachedFiles.map((file, index) => (
@@ -589,7 +851,29 @@ export function ChatInput({
                 </div>
               )}
             </PromptInputTools>
-            <PromptInputSubmit onStop={onStop} />
+            <div className="flex items-center gap-1">
+              <PromptInputButton
+                type="button"
+                onClick={toggleListening}
+                className={cn(
+                  "text-muted-foreground transition-colors",
+                  isListening
+                    ? "bg-primary/10 text-primary hover:bg-primary/20"
+                    : "hover:text-foreground",
+                )}
+                title={
+                  isListening
+                    ? "Stop voice input"
+                    : speechSupported
+                      ? "Start voice input"
+                      : "Speech recognition is not supported in this browser"
+                }
+                disabled={!speechSupported}
+              >
+                <IoMicOutline className="h-4 w-4" />
+              </PromptInputButton>
+              <PromptInputSubmit onStop={onStop} />
+            </div>
           </PromptInputFooter>
         </PromptInput>
       </PromptInputProvider>

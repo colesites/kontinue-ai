@@ -11,7 +11,9 @@ import {
   Search as SearchIcon,
   X,
   Sparkles,
+  ChevronUp,
 } from "lucide-react";
+import { IoSettingsSharp } from "react-icons/io5";
 import { cn } from "@/utils/cn";
 import { api } from "../../convex/_generated/api";
 import { Provider, getProviderColor } from "@/utils/url-safety";
@@ -35,6 +37,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -68,6 +77,11 @@ export function Sidebar() {
 
   const displayName =
     user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? "";
+  const userEmail = user?.primaryEmailAddress?.emailAddress ?? "";
+  const userInitial =
+    user?.firstName?.charAt(0) ??
+    displayName.charAt(0) ??
+    "U";
 
   const hasChats = (chats?.length ?? 0) > 0;
 
@@ -241,27 +255,76 @@ export function Sidebar() {
               <span>Upgrade to Pro</span>
             </Link>
           )}
-          <div className="flex items-center gap-3">
-            <UserButton
-              appearance={{
-                elements: {
-                  avatarBox: "w-9 h-9",
-                },
-              }}
-            />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <p className="truncate text-sm font-medium leading-tight text-sidebar-foreground">
-                  {displayName || "Logged in"}
-                </p>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex w-full items-center gap-3 rounded-xl border border-sidebar-border/60 bg-sidebar-accent/20 p-2.5 text-left transition-colors hover:bg-sidebar-accent/40 data-[state=open]:bg-sidebar-accent/50"
+              >
+                {user?.imageUrl ? (
+                  <span
+                    className="h-9 w-9 shrink-0 rounded-full border border-sidebar-border/60 bg-sidebar-accent/50 bg-cover bg-center"
+                    style={{ backgroundImage: `url(${user.imageUrl})` }}
+                  />
+                ) : (
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sidebar-border/60 bg-primary/15 text-sm font-semibold text-primary">
+                    {userInitial.toUpperCase()}
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium leading-tight text-sidebar-foreground">
+                    {displayName || "Logged in"}
+                  </p>
+                  <p className="truncate text-[10px] leading-tight text-sidebar-foreground/60">
+                    {userEmail || "Account"}
+                  </p>
+                </div>
+                <ChevronUp className="h-4 w-4 shrink-0 text-sidebar-foreground/60" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              side="top"
+              className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[var(--radix-dropdown-menu-trigger-width)] border-sidebar-border bg-sidebar text-sidebar-foreground"
+            >
+              <div className="flex items-center gap-3 rounded-md px-2 py-2">
+                <UserButton
+                  appearance={{
+                    elements: {
+                      avatarBox: "h-9 w-9",
+                    },
+                  }}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium leading-tight text-sidebar-foreground">
+                    {displayName || "Logged in"}
+                  </p>
+                  <p className="truncate text-[10px] leading-tight text-sidebar-foreground/60">
+                    {userEmail || "Account"}
+                  </p>
+                </div>
                 {isPro && (
-                  <span className="shrink-0 rounded-md bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary border border-primary/30">
+                  <span className="shrink-0 rounded-md border border-primary/30 bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary">
                     PRO
                   </span>
                 )}
               </div>
-            </div>
-          </div>
+              <DropdownMenuSeparator className="bg-sidebar-border/70" />
+              <DropdownMenuItem
+                asChild
+                className="cursor-pointer rounded-md text-sm text-sidebar-foreground hover:text-sidebar-foreground"
+              >
+                <Link
+                  href="/settings"
+                  onClick={handleNavigate}
+                  className="flex items-center gap-2"
+                >
+                  <IoSettingsSharp className="h-4 w-4 text-primary" />
+                  <span>Settings</span>
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </SidebarFooter>
     </SidebarPrimitive>
