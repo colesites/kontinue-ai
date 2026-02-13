@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
+import { usePathname } from "next/navigation";
 import { Plus, Search } from "lucide-react";
 import { useEffect } from "react";
 import type { ReactNode } from "react";
@@ -93,11 +94,17 @@ export function AppShell({
 }
 
 function ShellLayout({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const { isMobile, open, openMobile, setOpenMobile, setOpen } = useSidebar();
   const { chatId, chatTitle } = useChatContext();
+  const isHome = pathname === "/";
 
   const toolbarButtonClasses =
     "inline-flex h-8 w-8 items-center justify-center rounded-lg text-foreground/85 transition-colors hover:text-foreground hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
+  const floatingToolbarButtonClasses = cn(
+    toolbarButtonClasses,
+    "border border-border/50 bg-secondary/70 shadow-sm backdrop-blur-sm",
+  );
 
   const focusSidebarSearch = () => {
     const input = document.getElementById(
@@ -135,23 +142,28 @@ function ShellLayout({ children }: { children: ReactNode }) {
         <div className="pointer-events-none fixed inset-x-0 top-3 z-40 flex items-start justify-between px-3">
           <div
             className={cn(
-              "pointer-events-auto flex items-center gap-3 rounded-2xl border border-border/50 bg-secondary/70 p-1 text-foreground shadow-sm backdrop-blur-sm",
+              "pointer-events-auto flex items-center text-foreground",
+              isHome
+                ? "gap-2 rounded-none border-0 bg-transparent p-0 shadow-none backdrop-blur-none"
+                : "gap-3 rounded-2xl border border-border/50 bg-secondary/70 p-1 shadow-sm backdrop-blur-sm",
               hideTriggerGroup && "pointer-events-none opacity-0 scale-95",
             )}
             aria-hidden={hideTriggerGroup}
           >
-            <SidebarTrigger className={toolbarButtonClasses} />
+            <SidebarTrigger
+              className={isHome ? floatingToolbarButtonClasses : toolbarButtonClasses}
+            />
             <button
               type="button"
               onClick={handleSearchClick}
-              className={toolbarButtonClasses}
+              className={isHome ? floatingToolbarButtonClasses : toolbarButtonClasses}
               aria-label="Search chats"
             >
               <Search className="size-4" />
             </button>
             <Link
               href="/"
-              className={toolbarButtonClasses}
+              className={isHome ? floatingToolbarButtonClasses : toolbarButtonClasses}
               aria-label="Start new chat"
               onClick={handleNewChatClick}
             >
