@@ -12,6 +12,7 @@ import {
   X,
   Sparkles,
   ChevronUp,
+  Presentation,
 } from "lucide-react";
 import { IoSettingsSharp } from "react-icons/io5";
 import { cn } from "@/utils/cn";
@@ -146,6 +147,14 @@ export function Sidebar() {
           >
             <MessageSquarePlus size={18} />
             <span>New Chat</span>
+          </Link>
+          <Link
+            href="/slides"
+            onClick={handleNavigate}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/20 px-4 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent/40"
+          >
+            <Presentation size={18} />
+            <span>Docs to Slides</span>
           </Link>
           <div className="relative">
             <SearchIcon

@@ -774,7 +774,7 @@ export function ChatInput({
                           <PremiumModelBadge className="ml-1" />
                         )}
                         <ModelCapabilityIcons
-                          className="ml-1"
+                          className="ml-1 hidden md:flex"
                           capabilities={getCapabilities(selectedModelData.id)}
                         />
                       </>
@@ -810,7 +810,7 @@ export function ChatInput({
                                 <ModelSelectorName>{m.name}</ModelSelectorName>
                                 {premium && <PremiumModelBadge />}
                                 <ModelCapabilityIcons
-                                  className="mr-2"
+                                  className="mr-2 hidden md:flex"
                                   capabilities={getCapabilities(m.id)}
                                 />
                                 {model === m.id && (
