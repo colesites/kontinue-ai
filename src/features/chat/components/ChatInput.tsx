@@ -88,9 +88,9 @@ type SpeechRecognitionInstance = {
 };
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
-const LANGUAGE_ROTATE_INTERVAL_MS = 5000;
+const LANGUAGE_ROTATE_INTERVAL_MS = 9000;
 const MIN_CONFIDENCE_TO_LOCK_LANGUAGE = 0.72;
-const MIN_TRANSCRIPT_CHARS_TO_LOCK_WITHOUT_CONFIDENCE = 18;
+const MIN_TRANSCRIPT_CHARS_TO_LOCK_WITHOUT_CONFIDENCE = 36;
 
 function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null {
   if (typeof window === "undefined") return null;
@@ -107,23 +107,62 @@ function buildSpeechLanguageCandidates(preferredLanguage: string): string[] {
     if (!value) return;
     if (!candidates.includes(value)) candidates.push(value);
   };
+  const isEnglishVariant = (value: string) => value.toLowerCase().startsWith("en-");
 
   if (preferredLanguage && preferredLanguage !== SPEECH_AUTO_LANGUAGE) {
-    push(preferredLanguage);
+    return [preferredLanguage];
   }
 
+  const browserCandidates: string[] = [];
+  const pushBrowser = (value?: string | null) => {
+    if (!value) return;
+    if (!browserCandidates.includes(value)) browserCandidates.push(value);
+  };
+
+  // Auto mode: use browser preferences, but avoid hard-locking to English first
+  // when browser locale is English-only.
   if (typeof navigator !== "undefined") {
-    push(navigator.language);
+    pushBrowser(navigator.language);
     for (const language of navigator.languages ?? []) {
-      push(language);
+      pushBrowser(language);
     }
   }
 
-  for (const option of SPEECH_LANGUAGE_OPTIONS) {
-    if (option.value !== SPEECH_AUTO_LANGUAGE) {
-      push(option.value);
+  const browserHasNonEnglish = browserCandidates.some(
+    (value) => !isEnglishVariant(value),
+  );
+  if (browserHasNonEnglish) {
+    for (const value of browserCandidates) push(value);
+  } else {
+    for (const value of browserCandidates) {
+      if (!isEnglishVariant(value)) push(value);
     }
   }
+
+  const allKnownLanguages = SPEECH_LANGUAGE_OPTIONS
+    .map((option) => option.value)
+    .filter((value) => value !== SPEECH_AUTO_LANGUAGE);
+
+  const remaining = allKnownLanguages.filter((value) => !candidates.includes(value));
+  const nonEnglish = remaining.filter((value) => !isEnglishVariant(value));
+  const english = remaining.filter((value) => isEnglishVariant(value));
+  const browserEnglish = browserCandidates.filter((value) => isEnglishVariant(value));
+
+  // Rotate by language family, not every regional variant.
+  const pushOneVariantPerBase = (values: string[]) => {
+    const seenBase = new Set<string>();
+    for (const value of values) {
+      const base = value.split("-")[0];
+      if (seenBase.has(base)) continue;
+      seenBase.add(base);
+      push(value);
+    }
+  };
+
+  // Prioritize non-English families in auto mode to reduce English over-bias.
+  pushOneVariantPerBase(nonEnglish);
+  pushOneVariantPerBase(browserEnglish);
+  pushOneVariantPerBase(english);
 
   return candidates.length > 0 ? candidates : ["en-US"];
 }
@@ -416,6 +455,7 @@ export function ChatInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const languageRotateTimerRef = useRef<number | null>(null);
+  const autoDetectModeRef = useRef(false);
   const keepListeningRef = useRef(false);
   const languageCandidatesRef = useRef<string[]>([]);
   const languageIndexRef = useRef(0);
@@ -482,6 +522,7 @@ export function ChatInput({
 
   const stopListening = useCallback(() => {
     keepListeningRef.current = false;
+    autoDetectModeRef.current = false;
     clearLanguageRotateTimer();
     recognitionRef.current?.stop();
     recognitionRef.current = null;
@@ -574,6 +615,7 @@ export function ChatInput({
           }
           if (code === "no-speech") {
             forceAdvanceLanguageRef.current =
+              autoDetectModeRef.current &&
               languageIndexRef.current < languageCandidatesRef.current.length - 1;
             return;
           }
@@ -590,6 +632,7 @@ export function ChatInput({
           }
 
           const hasNextLanguage =
+            autoDetectModeRef.current &&
             languageIndexRef.current < languageCandidatesRef.current.length - 1;
           const shouldAdvanceLanguage =
             hasNextLanguage &&
@@ -602,14 +645,16 @@ export function ChatInput({
           void runRecognition(nextIndex);
         };
 
-        languageRotateTimerRef.current = window.setTimeout(() => {
-          if (!keepListeningRef.current) return;
-          if (recognitionRef.current !== recognition) return;
-          if (languageIndexRef.current >= languageCandidatesRef.current.length - 1) return;
-          if (shouldKeepCurrentLanguage()) return;
-          forceAdvanceLanguageRef.current = true;
-          recognition.stop();
-        }, LANGUAGE_ROTATE_INTERVAL_MS);
+        if (autoDetectModeRef.current) {
+          languageRotateTimerRef.current = window.setTimeout(() => {
+            if (!keepListeningRef.current) return;
+            if (recognitionRef.current !== recognition) return;
+            if (languageIndexRef.current >= languageCandidatesRef.current.length - 1) return;
+            if (shouldKeepCurrentLanguage()) return;
+            forceAdvanceLanguageRef.current = true;
+            recognition.stop();
+          }, LANGUAGE_ROTATE_INTERVAL_MS);
+        }
 
         recognition.start();
       } catch {
@@ -639,6 +684,7 @@ export function ChatInput({
     bestConfidenceRef.current = 0;
     finalTranscriptCharsRef.current = 0;
     forceAdvanceLanguageRef.current = false;
+    autoDetectModeRef.current = preferredSpeechLanguage === SPEECH_AUTO_LANGUAGE;
     languageCandidatesRef.current = buildSpeechLanguageCandidates(preferredSpeechLanguage);
     languageIndexRef.current = 0;
     setIsListening(true);

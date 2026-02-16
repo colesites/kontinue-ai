@@ -189,8 +189,8 @@ export default function SettingsPage() {
                     Preferred Voice Language
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Your selected language is used as a hint. Recognition still
-                    auto-falls back behind the scenes.
+                    When you choose a specific language, voice input listens only
+                    in that language. Only Auto mode rotates across languages.
                   </p>
 
                   <div className="mt-4 max-w-md">
