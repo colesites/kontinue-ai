@@ -7,7 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Continue AI",
+  title: "Kontinue AI",
   description: "Continue your AI conversations from any platform",
   icons: {
     icon: "/favicon.ico",

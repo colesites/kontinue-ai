@@ -52,7 +52,7 @@ export function HowToModal() {
               <Sparkles className="text-primary-foreground" size={28} />
             </div>
             <h2 className="text-2xl font-bold text-foreground">
-              Welcome to Continue AI
+              Welcome to Kontinue AI
             </h2>
             <p className="text-muted-foreground mt-2">
               Pick up where you left off with any AI conversation

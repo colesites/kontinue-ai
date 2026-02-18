@@ -136,7 +136,7 @@ export function Sidebar() {
             />
             <div>
               <p className="text-base font-semibold tracking-tight">
-                Continue AI
+                Kontinue AI
               </p>
             </div>
           </div>

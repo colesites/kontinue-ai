@@ -6,7 +6,7 @@ export default function SignInPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold bg-linear-to-r from-primary to-accent bg-clip-text text-transparent">
-            Continue AI
+            Kontinue AI
           </h1>
           <p className="text-muted-foreground mt-2">
             Sign in to continue your AI conversations

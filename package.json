@@ -1,5 +1,5 @@
 {
-  "name": "continue-ai",
+  "name": "kontinue-ai",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -31,6 +31,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@radix-ui/react-use-controllable-state": "^1.2.2",
     "@tanstack/react-query": "^5.90.12",
+    "@vercel/analytics": "^1.6.1",
     "@vercel/blob": "^2.2.0",
     "ai": "^6.0.78",
     "cheerio": "^1.1.2",

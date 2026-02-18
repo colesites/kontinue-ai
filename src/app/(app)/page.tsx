@@ -189,7 +189,7 @@ export default function HomePage() {
         <div className="flex-1 overflow-y-auto pb-56">
           <div className="mx-auto flex min-h-[calc(100dvh-10rem)] w-full max-w-3xl flex-col items-center justify-center px-4 pt-16 text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary/80">
-              Continue AI
+              Kontinue AI
             </p>
             <h1 className="mt-4 text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-5xl">
               How can I help you, {firstName}?
@@ -214,7 +214,7 @@ export default function HomePage() {
                   <DialogHeader>
                     <DialogTitle>Import conversation</DialogTitle>
                     <DialogDescription>
-                      Paste a shared link and continue the conversation in Continue AI.
+                      Paste a shared link and continue the conversation in Kontinue AI.
                     </DialogDescription>
                   </DialogHeader>
 

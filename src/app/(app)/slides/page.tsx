@@ -256,8 +256,8 @@ export default function SlidesPage() {
       const fileName = toPptxFileName(deck.deckTitle || "slide-deck");
 
       pptx.layout = "LAYOUT_WIDE";
-      pptx.author = "Continue AI";
-      pptx.company = "Continue AI";
+      pptx.author = "Kontinue AI";
+      pptx.company = "Kontinue AI";
       pptx.subject = deck.deckSubtitle || "AI generated slide deck";
       pptx.title = deck.deckTitle;
 

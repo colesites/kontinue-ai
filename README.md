@@ -1,10 +1,10 @@
-# Continue AI
+# Kontinue AI
 
 Continue your AI conversations from any platform. Import shared chat links from ChatGPT, Gemini, Claude, or Perplexity, and pick up where you left off.
 
 ## Features
 
-- **Import shared chat links** - Paste a shared link and Continue AI will fetch and parse the conversation
+- **Import shared chat links** - Paste a shared link and Kontinue AI will fetch and parse the conversation
 - **Manual transcript fallback** - If automatic import fails, paste the conversation text directly
 - **Multi-model support** - Choose from GPT-4o, Claude Sonnet 4, Gemini 2.0 Flash, and more
 - **Beautiful dark UI** - Modern, polished interface with scanning animations
@@ -138,7 +138,7 @@ convex/                     # Convex backend
 
 1. **User signs in** via Clerk (Google or email)
 2. **Pastes a shared link** from ChatGPT, Gemini, Claude, etc.
-3. **Continue AI fetches the page** and parses the conversation using provider-specific parsers
+3. **Kontinue AI fetches the page** and parses the conversation using provider-specific parsers
 4. **If automatic import fails**, user can paste the transcript manually
 5. **Conversation is saved** to Convex with full history
 6. **User continues chatting** with their choice of AI model

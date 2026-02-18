@@ -196,7 +196,7 @@ async function getIsProUser(
 // Allow streaming responses up to 60 seconds
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `You are Continue AI, an advanced AI assistant.
+const SYSTEM_PROMPT = `You are Kontinue AI, an advanced AI assistant.
 
 The user has imported a conversation from another AI platform and wants to continue it with you. You have access to the full conversation history.
 
