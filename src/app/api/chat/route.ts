@@ -261,10 +261,36 @@ export async function POST(req: Request) {
       return new Response("Pro plan required for this model", { status: 403 });
     }
 
+    // Token limits — tier-aware
+    // Free:         100 input tokens, 200 output tokens
+    // Pro+standard: 200 input tokens, 500 output tokens
+    // Pro+premium:  100 input tokens, 500 output tokens
+    const MAX_INPUT_TOKENS = !isPro ? 100 : isPremium ? 100 : 200;
+    const MAX_OUTPUT_TOKENS = !isPro ? 200 : 500;
+
+    // Rough estimate: 1 token ≈ 4 characters
+    const estimatedInputTokens = Math.ceil(lastUserContent.length / 4);
+    if (estimatedInputTokens > MAX_INPUT_TOKENS) {
+      const tierLabel = !isPro
+        ? "Free users"
+        : isPremium
+          ? "Pro users on premium models"
+          : "Pro users on standard models";
+      return new Response(
+        JSON.stringify({
+          error: `Your message is too long. ${tierLabel} are limited to ~${MAX_INPUT_TOKENS} tokens per message (~${MAX_INPUT_TOKENS * 4} characters). Please shorten your message.`,
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
     const hasVercelGatewayApiKey = !!process.env.VERCEL_AI_GATEWAY_API_KEY;
     const hasAiGatewayApiKey = !!process.env.AI_GATEWAY_API_KEY;
     const hasAiGatewayToken = !!process.env.AI_GATEWAY_TOKEN;
-    console.log("[chat-debug] VERCEL_AI_GATEWAY_API_KEY defined", hasVercelGatewayApiKey);
+    console.log(
+      "[chat-debug] VERCEL_AI_GATEWAY_API_KEY defined",
+      hasVercelGatewayApiKey,
+    );
     console.log("[chat-debug] AI_GATEWAY_API_KEY defined", hasAiGatewayApiKey);
     console.log("[chat-debug] AI_GATEWAY_TOKEN defined", hasAiGatewayToken);
 
@@ -290,7 +316,8 @@ export async function POST(req: Request) {
     const gatewayOpenAIBaseUrl =
       process.env.AI_GATEWAY_OPENAI_BASE_URL ??
       "https://ai-gateway.vercel.sh/v1";
-    const ignoredGatewayBaseUrlOverride = process.env.AI_GATEWAY_BASE_URL ?? null;
+    const ignoredGatewayBaseUrlOverride =
+      process.env.AI_GATEWAY_BASE_URL ?? null;
     const directPerplexityBaseUrlOverride =
       process.env.PERPLEXITY_BASE_URL ??
       process.env.PERPLEXITY_API_BASE_URL ??
@@ -316,11 +343,17 @@ export async function POST(req: Request) {
     const hasWebSearch = capabilities.includes("web-search");
     const supportsTools = modelSupportsTools(requestedModel);
     const provider = modelId.split("/")[0];
-    let openaiImageToolSize: "1024x1024" | "1024x1536" | "1536x1024" | "auto" | null =
-      null;
+    let openaiImageToolSize:
+      | "1024x1024"
+      | "1024x1536"
+      | "1536x1024"
+      | "auto"
+      | null = null;
 
     // All models use gateway
-    const modelInstance: LanguageModel = gw(modelId) as unknown as LanguageModel;
+    const modelInstance: LanguageModel = gw(
+      modelId,
+    ) as unknown as LanguageModel;
     const tools: ToolSet = {};
 
     // Prefer metadata capability, but still attach the tool when search is enabled
@@ -478,6 +511,8 @@ export async function POST(req: Request) {
       model: modelInstance,
       system: systemPrompt,
       messages: modelMessages,
+      // Cap AI output tokens based on user tier (free: 200, pro: 500).
+      maxTokens: MAX_OUTPUT_TOKENS,
       tools: shouldDisableTools ? undefined : hasTools ? tools : undefined,
       // Smooth large provider chunks into smaller deltas so plain text feels streamed.
       experimental_transform: smoothStream(),
@@ -487,9 +522,12 @@ export async function POST(req: Request) {
           }
         : forceWebSearchTool
           ? {
-              toolChoice: { type: "tool" as const, toolName: "perplexity_search" },
+              toolChoice: {
+                type: "tool" as const,
+                toolName: "perplexity_search",
+              },
             }
-        : {}),
+          : {}),
       // Allow tool loops, but only stop early once we have a textual answer after tool use.
       ...(stopWhen.length > 0 && { stopWhen }),
       onStepFinish: ({

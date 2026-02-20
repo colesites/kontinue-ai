@@ -81,7 +81,13 @@ export default defineSchema({
 
   usage: defineTable({
     ownerId: v.id("users"),
-    bucketType: v.union(v.literal("minute"), v.literal("day")),
+    bucketType: v.union(
+      v.literal("minute"),
+      v.literal("day"),
+      v.literal("month"), // free users: 20/month
+      v.literal("month_premium"), // pro users: premium-model quota (30/month)
+      v.literal("month_standard"), // pro users: standard-model quota (270/month)
+    ),
     bucketStartMs: v.number(),
     requestCount: v.number(),
     updatedAt: v.number(),

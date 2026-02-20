@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import { api } from "../../../../convex/_generated/api";
 import {
   getSavedSpeechLanguage,
@@ -28,6 +29,7 @@ export default function SettingsPage() {
   const { user } = useUser();
   const { isLoaded: isAuthLoaded, has } = useAuth();
   const currentUser = useQuery(api.users.getCurrentUser, {});
+  const usage = useQuery(api.messages.getMonthlyUsage, {});
   const [activeTab, setActiveTab] = useState<SettingsTab>("account");
   const [selectedLanguage, setSelectedLanguage] = useState<string>(() =>
     getSavedSpeechLanguage(),
@@ -114,7 +116,9 @@ export default function SettingsPage() {
                     {userInitial}
                   </span>
                 )}
-                <p className="mt-4 text-2xl font-semibold tracking-tight">{displayName}</p>
+                <p className="mt-4 text-2xl font-semibold tracking-tight">
+                  {displayName}
+                </p>
                 <p className="mt-1 max-w-full truncate text-sm text-muted-foreground">
                   {userEmail}
                 </p>
@@ -131,7 +135,9 @@ export default function SettingsPage() {
             </div>
 
             <div className="rounded-2xl border border-border/70 bg-card/60 p-4 shadow-sm">
-              <p className="text-sm font-medium text-foreground">Current plan</p>
+              <p className="text-sm font-medium text-foreground">
+                Current plan
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {isPro
                   ? "You have access to premium models and higher limits."
@@ -178,7 +184,9 @@ export default function SettingsPage() {
             {activeTab === "account" ? (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-xl font-semibold tracking-tight">Account</h2>
+                  <h2 className="text-xl font-semibold tracking-tight">
+                    Account
+                  </h2>
                   <p className="mt-2 text-sm text-muted-foreground">
                     Voice input language preferences for speech recognition.
                   </p>
@@ -189,8 +197,9 @@ export default function SettingsPage() {
                     Preferred Voice Language
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    When you choose a specific language, voice input listens only
-                    in that language. Only Auto mode rotates across languages.
+                    When you choose a specific language, voice input listens
+                    only in that language. Only Auto mode rotates across
+                    languages.
                   </p>
 
                   <div className="mt-4 max-w-md">
@@ -208,7 +217,9 @@ export default function SettingsPage() {
                         {SPEECH_LANGUAGE_OPTIONS.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}
-                            {option.nativeLabel ? ` - ${option.nativeLabel}` : ""}
+                            {option.nativeLabel
+                              ? ` - ${option.nativeLabel}`
+                              : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -225,11 +236,106 @@ export default function SettingsPage() {
                       : ""}
                   </div>
                 </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold tracking-tight">
+                      Monthly Usage
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Track your message consumption for the current month.
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-border/60 bg-background/70 p-5 space-y-6">
+                    {usage ? (
+                      <>
+                        {!usage.isPro ? (
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="font-medium">
+                                Free Model Messages
+                              </span>
+                              <span className="text-muted-foreground">
+                                {usage.freeMonthlyUsed} /{" "}
+                                {usage.freeMonthlyLimit}
+                              </span>
+                            </div>
+                            <Progress
+                              value={
+                                (usage.freeMonthlyUsed /
+                                  usage.freeMonthlyLimit) *
+                                100
+                              }
+                              className="h-2"
+                            />
+                            <p className="text-[10px] text-muted-foreground">
+                              Upgrade to Pro for higher limits and premium
+                              models.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-6">
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span className="font-medium">
+                                  Standard Model Messages
+                                </span>
+                                <span className="text-muted-foreground">
+                                  {usage.proStandardUsed} /{" "}
+                                  {usage.proStandardLimit}
+                                </span>
+                              </div>
+                              <Progress
+                                value={
+                                  (usage.proStandardUsed /
+                                    usage.proStandardLimit) *
+                                  100
+                                }
+                                className="h-2"
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span className="font-medium">
+                                  Premium Model Messages
+                                </span>
+                                <span className="text-muted-foreground">
+                                  {usage.proPremiumUsed} /{" "}
+                                  {usage.proPremiumLimit}
+                                </span>
+                              </div>
+                              <Progress
+                                value={
+                                  (usage.proPremiumUsed /
+                                    usage.proPremiumLimit) *
+                                  100
+                                }
+                                className="h-2 shadow-[0_0_8px_rgba(var(--primary),0.2)]"
+                              />
+                              <p className="text-[10px] text-muted-foreground">
+                                Premium models include image generation, web
+                                search, and reasoning.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-center py-4">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-xl font-semibold tracking-tight">Contact Us</h2>
+                  <h2 className="text-xl font-semibold tracking-tight">
+                    Contact Us
+                  </h2>
                   <p className="mt-2 text-sm text-muted-foreground">
                     Legal and policy information.
                   </p>

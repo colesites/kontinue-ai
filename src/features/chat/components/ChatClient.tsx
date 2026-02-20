@@ -717,11 +717,19 @@ export function ChatClient() {
           chatId,
           role: "user",
           content,
+          isPremiumModel: isPremium(selectedModel),
         });
       } catch (err: unknown) {
         const data = (err as { data?: { code?: string; message?: string } })
           ?.data;
-        if (data?.code === "RATE_LIMIT_RPM" || data?.code === "RATE_LIMIT_RPD") {
+        const rateLimitCodes = [
+          "RATE_LIMIT_RPM",
+          "RATE_LIMIT_RPD",
+          "RATE_LIMIT_MONTHLY",
+          "RATE_LIMIT_PRO_PREMIUM",
+          "RATE_LIMIT_PRO_STANDARD",
+        ];
+        if (data?.code && rateLimitCodes.includes(data.code)) {
           toast.error(data.message ?? "Rate limit reached. Please try again.");
           return;
         }
