@@ -87,7 +87,7 @@ async function normalizeTranscriptWithLLM(markdown: string) {
         content: `Please normalize this transcript:\n\n${markdown}`,
       },
     ],
-    // @ts-ignore - explicitly supported by Vercel AI SDK even if types lag
+    // @ts-expect-error - explicitly supported by Vercel AI SDK even if types lag
     maxTokens: 8192, // Increase output token limit to prevent truncation (Gemini supports long output)
   });
 

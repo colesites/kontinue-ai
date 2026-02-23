@@ -13,7 +13,6 @@ import {
   formatFileSize,
   getFileTypeEmoji,
   validateFile,
-  type UploadedFile,
 } from "@/lib/file-upload";
 import { cn } from "@/lib/utils";
 
