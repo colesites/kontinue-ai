@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { FaPaperclip } from "react-icons/fa";
-import { X, Loader2, Upload, Trash2 } from "lucide-react";
+import { Loader2, Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";

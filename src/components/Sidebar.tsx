@@ -80,9 +80,7 @@ export function Sidebar() {
     user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? "";
   const userEmail = user?.primaryEmailAddress?.emailAddress ?? "";
   const userInitial =
-    user?.firstName?.charAt(0) ??
-    displayName.charAt(0) ??
-    "U";
+    user?.firstName?.charAt(0) ?? displayName.charAt(0) ?? "U";
 
   const hasChats = (chats?.length ?? 0) > 0;
 
@@ -294,7 +292,7 @@ export function Sidebar() {
             <DropdownMenuContent
               align="start"
               side="top"
-              className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[var(--radix-dropdown-menu-trigger-width)] border-sidebar-border bg-sidebar text-sidebar-foreground"
+              className="w-(--radix-dropdown-menu-trigger-width) min-w-(--radix-dropdown-menu-trigger-width) border-sidebar-border bg-sidebar text-sidebar-foreground"
             >
               <div className="flex items-center gap-3 rounded-md px-2 py-2">
                 <UserButton

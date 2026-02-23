@@ -22,7 +22,7 @@ export function ImageGenerationLoader() {
         <div className="relative w-64 h-64 rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/20 overflow-hidden">
           {/* Animated shimmer effect */}
           <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite]">
-            <div className="h-full w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            <div className="h-full w-full bg-linear-to-r from-transparent via-white/10 to-transparent" />
           </div>
           {/* Grid pattern overlay */}
           <div className="absolute inset-0 opacity-20">

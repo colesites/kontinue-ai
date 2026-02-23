@@ -3,6 +3,7 @@
 import { cn } from "@/utils/cn";
 import { Check, Copy, Download, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import type { ChatMessageProps } from "@/features/chat/types";
 import { MessageContent } from "./MessageContent";
 import {
@@ -137,7 +138,7 @@ export function ChatMessage({
       <div
         className={cn(
           "group max-w-[92%] sm:max-w-[85%]",
-          isUser ? "ml-auto w-fit" : "w-fit"
+          isUser ? "ml-auto w-fit" : "w-fit",
         )}
       >
         {/* Bubble */}
@@ -148,7 +149,7 @@ export function ChatMessage({
             "shadow-sm shadow-black/20",
             isUser
               ? "bg-primary/10 border-primary/20"
-              : "bg-muted border-border"
+              : "bg-muted border-border",
           )}
         >
           <div
@@ -167,7 +168,7 @@ export function ChatMessage({
               "prose-hr:my-4 prose-hr:border-border",
               "prose-strong:font-bold prose-strong:text-foreground",
               "prose-em:italic",
-              "prose-code:text-sm prose-code:bg-muted/50 prose-code:px-1 prose-code:rounded prose-code:font-medium"
+              "prose-code:text-sm prose-code:bg-muted/50 prose-code:px-1 prose-code:rounded prose-code:font-medium",
             )}
           >
             {content ? (
@@ -183,9 +184,11 @@ export function ChatMessage({
                       className="cursor-zoom-in overflow-hidden rounded-lg border border-border transition-transform hover:scale-[1.01] focus:outline-none focus:ring-2 focus:ring-primary/50"
                       title="Expand image"
                     >
-                      <img
+                      <Image
                         src={src}
                         alt={`Generated ${i + 1}`}
+                        width={800}
+                        height={800}
                         className="max-h-80 rounded-lg object-contain"
                       />
                     </button>
@@ -210,7 +213,7 @@ export function ChatMessage({
             className={cn(
               "mt-2 flex items-center gap-2 text-xs text-muted-foreground transition-opacity",
               "opacity-60 group-hover:opacity-100",
-              isUser && "justify-end"
+              isUser && "justify-end",
             )}
           >
             <button
@@ -238,7 +241,7 @@ export function ChatMessage({
                     "inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors",
                     speechText
                       ? "hover:bg-muted hover:text-foreground"
-                      : "opacity-50 cursor-not-allowed"
+                      : "opacity-50 cursor-not-allowed",
                   )}
                   title={isSpeaking ? "Stop reading" : "Read aloud"}
                 >
@@ -256,10 +259,7 @@ export function ChatMessage({
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
-                    <DropdownMenuItem
-                      onClick={onRetry}
-                      disabled={!onRetry}
-                    >
+                    <DropdownMenuItem onClick={onRetry} disabled={!onRetry}>
                       Try again
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -268,7 +268,10 @@ export function ChatMessage({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <ModelSelector open={switchModelOpen} onOpenChange={setSwitchModelOpen}>
+                <ModelSelector
+                  open={switchModelOpen}
+                  onOpenChange={setSwitchModelOpen}
+                >
                   <ModelSelectorTrigger asChild>
                     <button className="hidden" aria-hidden="true" />
                   </ModelSelectorTrigger>
@@ -324,7 +327,7 @@ export function ChatMessage({
       </div>
       {expandedImageIndex !== null && imageParts[expandedImageIndex] && (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/85 p-4"
+          className="fixed inset-0 z-80 flex items-center justify-center bg-black/85 p-4"
           onClick={() => setExpandedImageIndex(null)}
           role="dialog"
           aria-modal="true"
@@ -342,9 +345,11 @@ export function ChatMessage({
             className="relative max-h-[92vh] max-w-[96vw]"
             onClick={(event) => event.stopPropagation()}
           >
-            <img
+            <Image
               src={imageParts[expandedImageIndex]}
               alt={`Expanded generated ${expandedImageIndex + 1}`}
+              width={1920}
+              height={1080}
               className="max-h-[92vh] max-w-[96vw] rounded-lg border border-white/20 object-contain shadow-2xl"
             />
             <button

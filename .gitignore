@@ -52,3 +52,5 @@ next-env.d.ts
 /.trae/
 /.windsurf/
 /.zencoder/
+# Sentry Config File
+.env.sentry-build-plugin

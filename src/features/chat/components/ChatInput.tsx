@@ -36,6 +36,7 @@ import { CiGlobe } from "react-icons/ci";
 import { FaPaperclip } from "react-icons/fa";
 import { IoMicOutline } from "react-icons/io5";
 import { useRef, useState, useCallback, useEffect, useMemo } from "react";
+import Image from "next/image";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { validateFile } from "@/lib/file-upload";
@@ -98,7 +99,9 @@ function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null 
     SpeechRecognition?: SpeechRecognitionConstructor;
     webkitSpeechRecognition?: SpeechRecognitionConstructor;
   };
-  return withSpeech.SpeechRecognition ?? withSpeech.webkitSpeechRecognition ?? null;
+  return (
+    withSpeech.SpeechRecognition ?? withSpeech.webkitSpeechRecognition ?? null
+  );
 }
 
 function buildSpeechLanguageCandidates(preferredLanguage: string): string[] {
@@ -107,7 +110,8 @@ function buildSpeechLanguageCandidates(preferredLanguage: string): string[] {
     if (!value) return;
     if (!candidates.includes(value)) candidates.push(value);
   };
-  const isEnglishVariant = (value: string) => value.toLowerCase().startsWith("en-");
+  const isEnglishVariant = (value: string) =>
+    value.toLowerCase().startsWith("en-");
 
   if (preferredLanguage && preferredLanguage !== SPEECH_AUTO_LANGUAGE) {
     return [preferredLanguage];
@@ -139,14 +143,18 @@ function buildSpeechLanguageCandidates(preferredLanguage: string): string[] {
     }
   }
 
-  const allKnownLanguages = SPEECH_LANGUAGE_OPTIONS
-    .map((option) => option.value)
-    .filter((value) => value !== SPEECH_AUTO_LANGUAGE);
+  const allKnownLanguages = SPEECH_LANGUAGE_OPTIONS.map(
+    (option) => option.value,
+  ).filter((value) => value !== SPEECH_AUTO_LANGUAGE);
 
-  const remaining = allKnownLanguages.filter((value) => !candidates.includes(value));
+  const remaining = allKnownLanguages.filter(
+    (value) => !candidates.includes(value),
+  );
   const nonEnglish = remaining.filter((value) => !isEnglishVariant(value));
   const english = remaining.filter((value) => isEnglishVariant(value));
-  const browserEnglish = browserCandidates.filter((value) => isEnglishVariant(value));
+  const browserEnglish = browserCandidates.filter((value) =>
+    isEnglishVariant(value),
+  );
 
   // Rotate by language family, not every regional variant.
   const pushOneVariantPerBase = (values: string[]) => {
@@ -188,8 +196,7 @@ function AttachmentPreview({
     /\.(png|jpe?g|webp|gif|bmp|svg|heic|heif)$/i.test(file.name);
   const isVideo = file.type.startsWith("video/");
   const isAudio = file.type.startsWith("audio/");
-  const isPdf =
-    file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
   const isText =
     file.type.startsWith("text/") ||
     [
@@ -235,9 +242,11 @@ function AttachmentPreview({
   return (
     <div className="group relative flex min-w-[240px] max-w-[360px] items-center gap-3 rounded-xl border border-border/60 bg-muted/30 p-2.5 pr-9 shadow-sm">
       {isImage && objectUrl && !imageError ? (
-        <img
+        <Image
           src={objectUrl}
           alt={file.name}
+          width={64}
+          height={64}
           className="h-16 w-16 rounded-lg border border-border/60 object-cover"
           onError={() => setImageError(true)}
         />
@@ -390,7 +399,14 @@ const OPENAI_SUPPORTED_ASPECTS = new Set([
   "7:3",
   "3:7",
 ]);
-const GOOGLE_SUPPORTED_ASPECTS = new Set(["auto", "1:1", "3:4", "4:3", "9:16", "16:9"]);
+const GOOGLE_SUPPORTED_ASPECTS = new Set([
+  "auto",
+  "1:1",
+  "3:4",
+  "4:3",
+  "9:16",
+  "16:9",
+]);
 
 function getSupportedImageOptions(modelId?: string) {
   if (!modelId) {
@@ -450,7 +466,9 @@ export function ChatInput({
   const [preferredSpeechLanguage, setPreferredSpeechLanguage] = useState(() =>
     getSavedSpeechLanguage(),
   );
-  const [activeRecognitionLanguage, setActiveRecognitionLanguage] = useState<string | null>(null);
+  const [activeRecognitionLanguage, setActiveRecognitionLanguage] = useState<
+    string | null
+  >(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
@@ -503,7 +521,9 @@ export function ChatInput({
 
     const handleLanguageChange = (event: Event) => {
       const customEvent = event as CustomEvent<string>;
-      setPreferredSpeechLanguage(customEvent.detail || getSavedSpeechLanguage());
+      setPreferredSpeechLanguage(
+        customEvent.detail || getSavedSpeechLanguage(),
+      );
     };
 
     window.addEventListener("storage", handleStorage);
@@ -582,7 +602,8 @@ export function ChatInput({
             if (!transcript) continue;
 
             if (result.isFinal) {
-              speechFinalTextRef.current = `${speechFinalTextRef.current} ${transcript}`.trim();
+              speechFinalTextRef.current =
+                `${speechFinalTextRef.current} ${transcript}`.trim();
               hasFinalResultRef.current = true;
               finalTranscriptCharsRef.current += transcript.length;
               if (
@@ -601,8 +622,11 @@ export function ChatInput({
             }
           }
 
-          const combinedTranscript = `${speechFinalTextRef.current} ${interim}`.trim();
-          setInputValue(mergeSpeechText(speechBaseTextRef.current, combinedTranscript));
+          const combinedTranscript =
+            `${speechFinalTextRef.current} ${interim}`.trim();
+          setInputValue(
+            mergeSpeechText(speechBaseTextRef.current, combinedTranscript),
+          );
         };
 
         recognition.onerror = (event) => {
@@ -616,7 +640,8 @@ export function ChatInput({
           if (code === "no-speech") {
             forceAdvanceLanguageRef.current =
               autoDetectModeRef.current &&
-              languageIndexRef.current < languageCandidatesRef.current.length - 1;
+              languageIndexRef.current <
+                languageCandidatesRef.current.length - 1;
             return;
           }
           toast.error("Voice input failed. Please try again.");
@@ -637,10 +662,9 @@ export function ChatInput({
           const shouldAdvanceLanguage =
             hasNextLanguage &&
             (forceAdvanceLanguageRef.current || !shouldKeepCurrentLanguage());
-          const nextIndex =
-            shouldAdvanceLanguage
-              ? languageIndexRef.current + 1
-              : languageIndexRef.current;
+          const nextIndex = shouldAdvanceLanguage
+            ? languageIndexRef.current + 1
+            : languageIndexRef.current;
           forceAdvanceLanguageRef.current = false;
           void runRecognition(nextIndex);
         };
@@ -649,7 +673,11 @@ export function ChatInput({
           languageRotateTimerRef.current = window.setTimeout(() => {
             if (!keepListeningRef.current) return;
             if (recognitionRef.current !== recognition) return;
-            if (languageIndexRef.current >= languageCandidatesRef.current.length - 1) return;
+            if (
+              languageIndexRef.current >=
+              languageCandidatesRef.current.length - 1
+            )
+              return;
             if (shouldKeepCurrentLanguage()) return;
             forceAdvanceLanguageRef.current = true;
             recognition.stop();
@@ -662,7 +690,12 @@ export function ChatInput({
         stopListening();
       }
     },
-    [clearLanguageRotateTimer, setInputValue, shouldKeepCurrentLanguage, stopListening],
+    [
+      clearLanguageRotateTimer,
+      setInputValue,
+      shouldKeepCurrentLanguage,
+      stopListening,
+    ],
   );
 
   const toggleListening = useCallback(() => {
@@ -684,8 +717,11 @@ export function ChatInput({
     bestConfidenceRef.current = 0;
     finalTranscriptCharsRef.current = 0;
     forceAdvanceLanguageRef.current = false;
-    autoDetectModeRef.current = preferredSpeechLanguage === SPEECH_AUTO_LANGUAGE;
-    languageCandidatesRef.current = buildSpeechLanguageCandidates(preferredSpeechLanguage);
+    autoDetectModeRef.current =
+      preferredSpeechLanguage === SPEECH_AUTO_LANGUAGE;
+    languageCandidatesRef.current = buildSpeechLanguageCandidates(
+      preferredSpeechLanguage,
+    );
     languageIndexRef.current = 0;
     setIsListening(true);
     void startRecognitionWithLanguage(0);
@@ -785,7 +821,10 @@ export function ChatInput({
             <PromptInputTextarea ref={textareaRef} />
             {isListening && (
               <div className="mt-2 px-1 text-xs text-primary/90">
-                Listening... {activeRecognitionLanguage ? `(${activeRecognitionLanguage})` : ""}
+                Listening...{" "}
+                {activeRecognitionLanguage
+                  ? `(${activeRecognitionLanguage})`
+                  : ""}
               </div>
             )}
             {attachedFiles.length > 0 && (
@@ -930,7 +969,7 @@ export function ChatInput({
                     }}
                   >
                     <SelectTrigger
-                      className="h-8 min-w-[5rem] w-fit border border-input text-xs text-muted-foreground"
+                      className="h-8 min-w-20 w-fit border border-input text-xs text-muted-foreground"
                       title="Image aspect / size"
                     >
                       <SelectValue placeholder="Aspect" />
@@ -953,7 +992,10 @@ export function ChatInput({
                           <SelectItem
                             key={o.value}
                             value={o.value}
-                            disabled={o.value !== "default" && !supportedSizes.has(o.value)}
+                            disabled={
+                              o.value !== "default" &&
+                              !supportedSizes.has(o.value)
+                            }
                           >
                             {o.label}
                           </SelectItem>

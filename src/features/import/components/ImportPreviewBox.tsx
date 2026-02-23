@@ -3,25 +3,18 @@
 import { useImportStore } from "../lib/useImportStore";
 import { cn } from "@/utils/cn";
 import { getProviderDisplayName, getProviderColor } from "@/utils/url-safety";
-import {
-  Scan,
-  CheckCircle,
-  AlertCircle,
-  Loader2,
-  MessageSquare,
-} from "lucide-react";
+import { Scan, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 
-const SCAN_STEPS = [
-  "Connecting to shared link...",
-  "Reading conversation...",
-  "Extracting messages...",
-  "Normalizing format...",
-  "Preparing preview...",
-];
+// const SCAN_STEPS = [
+//   "Connecting to shared link...",
+//   "Reading conversation...",
+//   "Extracting messages...",
+//   "Normalizing format...",
+//   "Preparing preview...",
+// ];
 
 export function ImportPreviewBox() {
-  const { status, provider, preview, error, requiresManualPaste } =
-    useImportStore();
+  const { status, provider, preview, error } = useImportStore();
 
   if (status === "idle") {
     return null;
@@ -35,7 +28,7 @@ export function ImportPreviewBox() {
         status === "previewing" && "border-green-500/50",
         status === "error" && "border-destructive/50",
         status === "importing" && "border-primary/50",
-        status === "success" && "border-green-500/50",
+        status === "success" && "border-green-500/50"
       )}
     >
       {/* Header */}
@@ -46,7 +39,7 @@ export function ImportPreviewBox() {
           status === "previewing" && "bg-green-500/10",
           status === "error" && "bg-destructive/10",
           status === "importing" && "bg-primary/10",
-          status === "success" && "bg-green-500/10",
+          status === "success" && "bg-green-500/10"
         )}
       >
         {status === "scanning" && (
@@ -151,7 +144,7 @@ export function ImportPreviewBox() {
                       "w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs",
                       msg.role === "user"
                         ? "bg-primary/20 text-primary"
-                        : "bg-primary/20 text-primary",
+                        : "bg-primary/20 text-primary"
                     )}
                   >
                     {msg.role === "user" ? "U" : "A"}
