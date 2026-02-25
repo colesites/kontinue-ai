@@ -27,21 +27,22 @@ function toProgress(used: number, limit: number): number {
 }
 
 function ImportUsageSection({ usage }: { usage: NonNullable<MonthlyUsage> }) {
+  const monthlyImportUsed = usage.monthlyImportUsed ?? 0;
   const isUnlimited = usage.monthlyImportLimit === null;
-  const monthlyImportLimit = usage.monthlyImportLimit ?? 0;
+  const monthlyImportLimit =
+    typeof usage.monthlyImportLimit === "number" ? usage.monthlyImportLimit : 0;
 
   return (
     <div className="space-y-2">
       <div className="flex justify-between text-sm">
         <span className="font-medium">Monthly Imports</span>
         <span className="text-muted-foreground">
-          {usage.monthlyImportUsed} /{" "}
-          {isUnlimited ? "Unlimited" : usage.monthlyImportLimit}
+          {monthlyImportUsed} / {isUnlimited ? "Unlimited" : monthlyImportLimit}
         </span>
       </div>
       {!isUnlimited && (
         <Progress
-          value={toProgress(usage.monthlyImportUsed, monthlyImportLimit)}
+          value={toProgress(monthlyImportUsed, monthlyImportLimit)}
           className="h-2"
         />
       )}
