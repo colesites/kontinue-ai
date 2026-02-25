@@ -150,7 +150,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
         <div className="flex flex-1 flex-col min-h-0">
           <div
             id="chat-scroll-container"
-            className={cn("flex-1 overflow-y-auto", isHome ? "pt-0" : "pt-14")}
+            className={cn("flex-1 overflow-y-auto", isHome ? "pt-0" : "pt-9")}
           >
             {children}
           </div>

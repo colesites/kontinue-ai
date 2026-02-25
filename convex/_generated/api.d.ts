@@ -9,6 +9,7 @@
  */
 
 import type * as chats from "../chats.js";
+import type * as feedback from "../feedback.js";
 import type * as files from "../files.js";
 import type * as firecrawl from "../firecrawl.js";
 import type * as lib_import_limits from "../lib/import_limits.js";
@@ -25,6 +26,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   chats: typeof chats;
+  feedback: typeof feedback;
   files: typeof files;
   firecrawl: typeof firecrawl;
   "lib/import_limits": typeof lib_import_limits;

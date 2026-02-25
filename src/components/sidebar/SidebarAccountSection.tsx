@@ -1,7 +1,12 @@
+"use client";
+
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
+import { useMemo } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { ChevronUp, Sparkles } from "lucide-react";
 import { IoSettingsSharp } from "react-icons/io5";
+import { LuMessageSquarePlus } from "react-icons/lu";
 import { SidebarFooter } from "@/components/ui/sidebar";
 import { planLabel, type PlanTier } from "@/lib/plan-tier";
 import {
@@ -29,8 +34,18 @@ export function SidebarAccountSection({
   planTier,
   onNavigate,
 }: SidebarAccountSectionProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const isPaid = planTier !== "free";
   const isTopTier = planTier === "pro";
+  const returnTo = useMemo(() => {
+    const query = searchParams.toString();
+    return query ? `${pathname}?${query}` : pathname;
+  }, [pathname, searchParams]);
+  const feedbackHref = {
+    pathname: "/feeback",
+    query: { returnTo },
+  };
 
   return (
     <SidebarFooter className="border-t border-sidebar-border/60 p-4">
@@ -116,6 +131,19 @@ export function SidebarAccountSection({
               >
                 <IoSettingsSharp className="h-4 w-4 text-primary" />
                 <span>Settings</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              asChild
+              className="cursor-pointer rounded-md text-sm text-sidebar-foreground hover:text-sidebar-foreground"
+            >
+              <Link
+                href={feedbackHref}
+                onClick={onNavigate}
+                className="flex items-center gap-2"
+              >
+                <LuMessageSquarePlus className="h-4 w-4 text-primary" />
+                <span>Feedback</span>
               </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>

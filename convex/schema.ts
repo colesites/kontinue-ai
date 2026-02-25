@@ -124,4 +124,27 @@ export default defineSchema({
     .index("by_chat", ["chatId"])
     .index("by_message", ["messageId"])
     .index("by_owner_chat", ["ownerId", "chatId"]),
+
+  feedbackPosts: defineTable({
+    ownerId: v.id("users"),
+    title: v.string(),
+    details: v.string(),
+    type: v.union(v.literal("feature"), v.literal("bug")),
+    score: v.number(),
+    commentCount: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_created", ["createdAt"])
+    .index("by_score", ["score"])
+    .index("by_owner", ["ownerId"]),
+
+  feedbackComments: defineTable({
+    postId: v.id("feedbackPosts"),
+    ownerId: v.id("users"),
+    body: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_post_created", ["postId", "createdAt"])
+    .index("by_owner", ["ownerId"]),
 });
