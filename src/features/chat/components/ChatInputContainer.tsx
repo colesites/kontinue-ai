@@ -61,7 +61,7 @@ export function ChatInputContainer({
       }}
     >
       <div className="pointer-events-auto relative mx-auto w-full max-w-3xl">
-        {(showScrollToTopButton || showScrollToBottomButton) && (
+        {!isSidebarMobile && (showScrollToTopButton || showScrollToBottomButton) && (
           <div className="absolute bottom-38 left-1/2 z-50 flex -translate-x-1/2 flex-col gap-2">
             {showScrollToTopButton && (
               <button

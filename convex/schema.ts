@@ -17,6 +17,7 @@ export default defineSchema({
   chats: defineTable({
     ownerId: v.id("users"),
     title: v.string(),
+    pinnedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
     source: v.object({

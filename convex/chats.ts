@@ -16,6 +16,26 @@ type StoredChatMessage = {
   content: string;
 };
 
+type SidebarSortableChat = {
+  pinnedAt?: number;
+  updatedAt: number;
+};
+
+function sortChatsForSidebar<T extends SidebarSortableChat>(a: T, b: T): number {
+  const aPinnedAt =
+    typeof a.pinnedAt === "number" && a.pinnedAt > 0 ? a.pinnedAt : null;
+  const bPinnedAt =
+    typeof b.pinnedAt === "number" && b.pinnedAt > 0 ? b.pinnedAt : null;
+
+  if (aPinnedAt !== null || bPinnedAt !== null) {
+    if (aPinnedAt === null) return 1;
+    if (bPinnedAt === null) return -1;
+    if (aPinnedAt !== bPinnedAt) return bPinnedAt - aPinnedAt;
+  }
+
+  return b.updatedAt - a.updatedAt;
+}
+
 function splitMessageContentForStorage(content: string): string[] {
   const trimmed = content.trim();
   if (!trimmed) return [];
@@ -369,11 +389,45 @@ export const getUserChats = query({
       return [];
     }
 
-    return await ctx.db
+    const chats = await ctx.db
       .query("chats")
       .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
-      .order("desc")
       .collect();
+
+    return chats.sort(sortChatsForSidebar);
+  },
+});
+
+export const toggleChatPin = mutation({
+  args: {
+    chatId: v.id("chats"),
+    pinned: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const chat = await ctx.db.get(args.chatId);
+    if (!chat) {
+      throw new Error("Chat not found");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkUserId", identity.subject))
+      .unique();
+
+    if (!user || chat.ownerId !== user._id) {
+      throw new Error("Unauthorized");
+    }
+
+    await ctx.db.patch(args.chatId, {
+      pinnedAt: args.pinned ? Date.now() : 0,
+    });
+
+    return { pinned: args.pinned };
   },
 });
 
@@ -651,7 +705,11 @@ export const searchChats = query({
           matchedContent: string[];
         } => data.chat !== null,
       )
-      .sort((a, b) => b.score - a.score)
+      .sort((a, b) => {
+        const pinSort = sortChatsForSidebar(a.chat, b.chat);
+        if (pinSort !== 0) return pinSort;
+        return b.score - a.score;
+      })
       .map((data) => data.chat);
 
     return finalResults.slice(0, 10);

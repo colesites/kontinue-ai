@@ -154,6 +154,10 @@ export function ChatClient() {
             chatState.setUserSelectedModel(mid);
             handleRetry(id, mid);
           }}
+          showScrollToTopButton={showScrollToTopButton}
+          showScrollToBottomButton={showScrollToBottomButton}
+          onScrollToTop={scrollToTop}
+          onScrollToBottom={scrollToBottom}
           messagesEndRef={messagesEndRef}
         />
       </div>

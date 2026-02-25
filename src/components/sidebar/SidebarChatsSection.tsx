@@ -1,28 +1,15 @@
-import Link from "next/link";
-import { MessageCircle } from "lucide-react";
-import { cn } from "@/utils/cn";
-import { Provider, PROVIDER_CONFIG } from "@/utils/url-safety";
+"use client";
+
+import { ShareModal } from "@/components/ShareModal";
+import { SidebarChatRow } from "@/components/sidebar/SidebarChatRow";
+import { SidebarChat } from "@/components/sidebar/sidebar-chat-types";
+import { useSidebarChatActions } from "@/components/sidebar/useSidebarChatActions";
 import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-
-type SidebarChat = {
-  _id: string;
-  title: string;
-  source?: {
-    provider?: string | null;
-  } | null;
-};
 
 type SidebarChatsSectionProps = {
   chats: SidebarChat[] | undefined;
@@ -40,72 +27,60 @@ export function SidebarChatsSection({
   onNavigate,
 }: SidebarChatsSectionProps) {
   const hasChats = (chats?.length ?? 0) > 0;
+  const actions = useSidebarChatActions({ chats, pathname });
 
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.3em] text-sidebar-foreground/60">
-        {debouncedQuery.trim() ? "Search Results" : "Recent Chats"}
-      </SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
-          ) : (
-            chats?.map((chat) => {
-              const isActive = pathname === `/chat/${chat._id}`;
-              const provider = chat.source?.provider as Provider | undefined;
-              const providerColor = provider
-                ? PROVIDER_CONFIG[provider]?.color
-                : undefined;
+    <>
+      <SidebarGroup>
+        <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.3em] text-sidebar-foreground/60">
+          {debouncedQuery.trim() ? "Search Results" : "Recent Chats"}
+        </SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              </div>
+            ) : (
+              chats?.map((chat) => (
+                <SidebarChatRow
+                  key={chat._id}
+                  chat={chat}
+                  pathname={pathname}
+                  onNavigate={onNavigate}
+                  isRenaming={actions.renamingChatId === chat._id}
+                  isBusy={actions.busyChatId === chat._id}
+                  renameValue={actions.renameValue}
+                  onRenameChange={actions.setRenameValue}
+                  onRenameSubmit={() => void actions.handleRenameSubmit(chat)}
+                  onRenameCancel={actions.closeRename}
+                  onStartRename={() => actions.startRename(chat)}
+                  onTogglePin={() => void actions.handleTogglePin(chat)}
+                  onShare={() => actions.setShareChat(chat)}
+                  onDelete={() => void actions.handleDelete(chat)}
+                />
+              ))
+            )}
+          </SidebarMenu>
 
-              return (
-                <SidebarMenuItem key={chat._id}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive}
-                    tooltip={chat.title}
-                    className={cn(
-                      "h-10 border border-transparent px-3 text-sm",
-                      "data-[active=true]:border-sidebar-border data-[active=true]:bg-sidebar-accent/40 data-[active=true]:text-sidebar-accent-foreground",
-                    )}
-                  >
-                    <Link
-                      href={`/chat/${chat._id}`}
-                      onClick={onNavigate}
-                      className="flex items-center gap-3"
-                    >
-                      <MessageCircle
-                        size={16}
-                        style={{
-                          color: isActive ? undefined : providerColor,
-                        }}
-                      />
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="truncate">{chat.title}</span>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" align="start">
-                          <p className="max-w-[280px] text-xs">{chat.title}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              );
-            })
+          {!hasChats && !isLoading && (
+            <p className="mt-4 rounded-xl border border-dashed border-sidebar-border/60 px-3 py-4 text-center text-xs text-sidebar-foreground/60">
+              {debouncedQuery.trim()
+                ? `No results found for "${debouncedQuery}"`
+                : "No chats yet. Import a conversation to get started."}
+            </p>
           )}
-        </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
 
-        {!hasChats && !isLoading && (
-          <p className="mt-4 rounded-xl border border-dashed border-sidebar-border/60 px-3 py-4 text-center text-xs text-sidebar-foreground/60">
-            {debouncedQuery.trim()
-              ? `No results found for "${debouncedQuery}"`
-              : "No chats yet. Import a conversation to get started."}
-          </p>
-        )}
-      </SidebarGroupContent>
-    </SidebarGroup>
+      {actions.shareChat ? (
+        <ShareModal
+          isOpen={!!actions.shareChat}
+          onClose={() => actions.setShareChat(null)}
+          chatId={actions.shareChat._id}
+          chatTitle={actions.shareChat.title}
+        />
+      ) : null}
+    </>
   );
 }
