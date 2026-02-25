@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
+import { getUserPlanTier } from "@/app/api/chat/lib/plan-limits";
 
 // Max file size: 5MB
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -40,6 +41,21 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Unauthorized - please sign in" },
         { status: 401 }
+      );
+    }
+
+    const planTier = await getUserPlanTier(
+      userId,
+      typeof authResult.has === "function" ? authResult.has : undefined,
+    );
+    if (planTier === "free") {
+      return NextResponse.json(
+        {
+          code: "FREE_PLAN_UPLOAD_DISABLED",
+          error:
+            "File uploads are available on Starter and Pro plans. Please upgrade to continue.",
+        },
+        { status: 403 },
       );
     }
 

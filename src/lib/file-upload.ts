@@ -1,6 +1,7 @@
 /**
  * Client-side helper functions for file uploads to Vercel Blob
  */
+import { assertValidUploadFile, validateFile } from "@/lib/file-upload.validators";
 
 export interface UploadedFile {
   url: string;
@@ -16,48 +17,22 @@ export interface UploadError {
   allowedTypes?: string[];
 }
 
+async function readJsonOrThrow(response: Response): Promise<unknown> {
+  const data = await response.json();
+  if (!response.ok) {
+    const payload = data as { error?: string };
+    throw new Error(payload.error || "Request failed");
+  }
+  return data;
+}
+
 /**
  * Upload a file to Vercel Blob via our API
  * @param file - The file to upload
  * @returns Promise with uploaded file metadata
  */
 export async function uploadFile(file: File): Promise<UploadedFile> {
-  // Validate file size on client (5MB max)
-  const MAX_SIZE = 5 * 1024 * 1024;
-  if (file.size > MAX_SIZE) {
-    throw new Error("File size exceeds 5MB limit");
-  }
-
-  // Validate file type on client
-  const allowedTypes = [
-    "image/png",
-    "image/jpeg",
-    "image/webp",
-    "image/svg+xml",
-    "application/pdf",
-    "application/json",
-    "application/xml",
-    "text/xml",
-    "application/x-yaml",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "video/mp4",
-    "video/webm",
-    "video/quicktime",
-    "audio/mpeg",
-    "audio/mp4",
-    "audio/aac",
-    "audio/wav",
-    "audio/ogg",
-    "audio/webm",
-    "audio/flac",
-  ];
-  const isText = file.type.startsWith("text/");
-  if (!isText && !allowedTypes.includes(file.type)) {
-    throw new Error(
-      "Invalid file type. Allowed: images, PDF, MP4, WebM, MOV, MP3, M4A, AAC, WAV, OGG, FLAC, and text files"
-    );
-  }
+  assertValidUploadFile(file);
 
   try {
     const response = await fetch(
@@ -67,14 +42,7 @@ export async function uploadFile(file: File): Promise<UploadedFile> {
         body: file,
       }
     );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "Upload failed");
-    }
-
-    return data as UploadedFile;
+    return (await readJsonOrThrow(response)) as UploadedFile;
   } catch (error) {
     console.error("File upload error:", error);
     throw error instanceof Error
@@ -93,22 +61,22 @@ export async function uploadFiles(
   files: File[],
   onProgress?: (completed: number, total: number) => void
 ): Promise<UploadedFile[]> {
-  const results: UploadedFile[] = [];
   let completed = 0;
 
-  for (const file of files) {
-    try {
-      const result = await uploadFile(file);
-      results.push(result);
-      completed++;
-      onProgress?.(completed, files.length);
-    } catch (error) {
-      console.error(`Failed to upload ${file.name}:`, error);
-      throw error;
-    }
+  try {
+    const results = await Promise.all(
+      files.map(async (file) => {
+        const result = await uploadFile(file);
+        completed++;
+        onProgress?.(completed, files.length);
+        return result;
+      }),
+    );
+    return results;
+  } catch (error) {
+    console.error("Failed to upload files:", error);
+    throw error;
   }
-
-  return results;
 }
 
 /**
@@ -124,12 +92,7 @@ export async function deleteFile(pathname: string): Promise<void> {
         method: "DELETE",
       }
     );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "Delete failed");
-    }
+    await readJsonOrThrow(response);
   } catch (error) {
     console.error("File deletion error:", error);
     throw error instanceof Error
@@ -166,45 +129,4 @@ export function getFileTypeEmoji(contentType: string): string {
   return "📎";
 }
 
-/**
- * Validate file before upload
- * @param file - File to validate
- * @returns Error message if invalid, null if valid
- */
-export function validateFile(file: File): string | null {
-  const MAX_SIZE = 5 * 1024 * 1024;
-  const allowedTypes = [
-    "image/png",
-    "image/jpeg",
-    "image/webp",
-    "image/svg+xml",
-    "application/pdf",
-    "application/json",
-    "application/xml",
-    "text/xml",
-    "application/x-yaml",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "video/mp4",
-    "video/webm",
-    "video/quicktime",
-    "audio/mpeg",
-    "audio/mp4",
-    "audio/aac",
-    "audio/wav",
-    "audio/ogg",
-    "audio/webm",
-    "audio/flac",
-  ];
-
-  if (file.size > MAX_SIZE) {
-    return "File size exceeds 5MB limit";
-  }
-
-  const isText = file.type.startsWith("text/");
-  if (!isText && !allowedTypes.includes(file.type)) {
-    return "Invalid file type. Allowed: images, PDF, MP4, WebM, MOV, MP3, M4A, AAC, WAV, OGG, FLAC, and text files";
-  }
-
-  return null;
-}
+export { validateFile };

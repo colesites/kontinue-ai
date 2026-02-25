@@ -3,8 +3,8 @@
 import { useParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
-import { api } from "../../../../convex/_generated/api";
-import type { Id } from "../../../../convex/_generated/dataModel";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
 import { ChatMessage } from "@/features/chat/components/ChatMessage";
 
 export default function SharePage() {

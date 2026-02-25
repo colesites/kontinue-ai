@@ -8,7 +8,7 @@ export default defineSchema({
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
     subscriptionStatus: v.optional(v.string()), // 'active', 'canceled'
-    plan: v.optional(v.string()), // 'free', 'pro'
+    plan: v.optional(v.string()), // 'free', 'starter_plan', 'pro_plan'
     createdAt: v.number(),
   })
     .index("by_clerk_id", ["clerkUserId"])
@@ -84,9 +84,9 @@ export default defineSchema({
     bucketType: v.union(
       v.literal("minute"),
       v.literal("day"),
-      v.literal("month"), // free users: 20/month
-      v.literal("month_premium"), // pro users: premium-model quota (30/month)
-      v.literal("month_standard"), // pro users: standard-model quota (270/month)
+      v.literal("month"), // free users: 30/month
+      v.literal("month_premium"), // paid users: premium-model quota by tier
+      v.literal("month_standard"), // paid users: standard-model quota by tier
     ),
     bucketStartMs: v.number(),
     requestCount: v.number(),

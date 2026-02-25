@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { Plus, Search } from "lucide-react";
 import { useEffect } from "react";
 import type { ReactNode } from "react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "@convex/_generated/api";
 import { Sidebar as AppSidebar } from "@/components/Sidebar";
 import {
   SidebarInset,
@@ -19,6 +19,8 @@ import { cn } from "@/utils/cn";
 import { ModeToggle } from "@/components/ModeToggle";
 import { ShareButton } from "@/components/ShareButton";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
+import { persistedPlanForTier } from "@/lib/plan-tier";
+import { usePlanTier } from "@/lib/use-plan-tier";
 
 export function AppShell({
   children,
@@ -28,50 +30,24 @@ export function AppShell({
   defaultOpen?: boolean;
 }) {
   const { user, isLoaded } = useUser();
-  const { isLoaded: isAuthLoaded, has } = useAuth();
+  const { isLoaded: isAuthLoaded } = useAuth();
   const getOrCreateUser = useMutation(api.users.getOrCreateUser);
+  const planTier = usePlanTier();
 
   useEffect(() => {
-    if (isLoaded && isAuthLoaded && user) {
-      const isProFromClerkPlans =
-        typeof has === "function" ? has({ plan: "pro_plan" }) : false;
-
-      type Entitlement = { key?: string; name?: string };
-      type UserWithBilling = {
-        entitlements?: Entitlement[];
-        publicMetadata?: { plan?: string; subscriptionStatus?: string };
-        unsafeMetadata?: { plan?: string; subscriptionStatus?: string };
-      };
-
-      const billingUser = user as unknown as UserWithBilling;
-      const entitlements = billingUser.entitlements ?? [];
-      const isProFromEntitlements = entitlements.some(
-        (e) => e.key === "pro" || e.name === "Pro",
-      );
-
-      const planFromMetadata =
-        billingUser.publicMetadata?.plan ?? billingUser.unsafeMetadata?.plan;
-      const subscriptionStatusFromMetadata =
-        billingUser.publicMetadata?.subscriptionStatus ??
-        billingUser.unsafeMetadata?.subscriptionStatus;
-
-      const isProFromClerkLegacy =
-        planFromMetadata === "pro" ||
-        subscriptionStatusFromMetadata === "active" ||
-        isProFromEntitlements;
-
-      const isPro = isProFromClerkPlans || isProFromClerkLegacy;
-
-      getOrCreateUser({
-        clerkUserId: user.id,
-        email: user.primaryEmailAddress?.emailAddress ?? "",
-        name: user.fullName ?? undefined,
-        imageUrl: user.imageUrl ?? undefined,
-        subscriptionStatus: isPro ? "active" : "inactive",
-        plan: isPro ? "pro" : "free",
-      });
+    if (!isLoaded || !isAuthLoaded || !user) {
+      return;
     }
-  }, [isLoaded, isAuthLoaded, user, has, getOrCreateUser]);
+
+    void getOrCreateUser({
+      clerkUserId: user.id,
+      email: user.primaryEmailAddress?.emailAddress ?? "",
+      name: user.fullName ?? undefined,
+      imageUrl: user.imageUrl ?? undefined,
+      subscriptionStatus: planTier === "free" ? "inactive" : "active",
+      plan: persistedPlanForTier(planTier),
+    });
+  }, [getOrCreateUser, isAuthLoaded, isLoaded, planTier, user]);
 
   if (!isLoaded) {
     return (

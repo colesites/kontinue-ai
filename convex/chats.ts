@@ -1,6 +1,80 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { getPersistedPlanTier } from "./lib/plan";
+import {
+  FREE_MONTHLY_AUTOMATIC_IMPORT_LIMIT,
+  STARTER_MONTHLY_AUTOMATIC_IMPORT_LIMIT,
+  getMonthlyAutomaticImportLimit,
+  getUtcMonthRange,
+} from "./lib/import_limits";
 import type { Doc, Id } from "./_generated/dataModel";
+
+const IMPORT_MESSAGE_MAX_CHARS = 300_000;
+
+type StoredChatMessage = {
+  role: "system" | "user" | "assistant";
+  content: string;
+};
+
+function splitMessageContentForStorage(content: string): string[] {
+  const trimmed = content.trim();
+  if (!trimmed) return [];
+  if (trimmed.length <= IMPORT_MESSAGE_MAX_CHARS) return [trimmed];
+
+  const chunks: string[] = [];
+  let currentChunk = "";
+  const paragraphs = trimmed.split(/\n{2,}/);
+
+  const pushChunk = () => {
+    const chunk = currentChunk.trim();
+    if (chunk) {
+      chunks.push(chunk);
+    }
+    currentChunk = "";
+  };
+
+  for (const paragraph of paragraphs) {
+    const trimmedParagraph = paragraph.trim();
+    if (!trimmedParagraph) continue;
+
+    const candidate = currentChunk
+      ? `${currentChunk}\n\n${trimmedParagraph}`
+      : trimmedParagraph;
+
+    if (candidate.length <= IMPORT_MESSAGE_MAX_CHARS) {
+      currentChunk = candidate;
+      continue;
+    }
+
+    pushChunk();
+
+    if (trimmedParagraph.length <= IMPORT_MESSAGE_MAX_CHARS) {
+      currentChunk = trimmedParagraph;
+      continue;
+    }
+
+    for (let i = 0; i < trimmedParagraph.length; i += IMPORT_MESSAGE_MAX_CHARS) {
+      const slice = trimmedParagraph
+        .slice(i, i + IMPORT_MESSAGE_MAX_CHARS)
+        .trim();
+      if (slice) {
+        chunks.push(slice);
+      }
+    }
+  }
+
+  pushChunk();
+
+  return chunks.length > 0 ? chunks : [trimmed];
+}
+
+function expandMessagesForStorage(messages: StoredChatMessage[]): StoredChatMessage[] {
+  return messages.flatMap((message) => {
+    const chunks = splitMessageContentForStorage(message.content);
+    if (chunks.length <= 1) return [{ role: message.role, content: message.content.trim() }];
+    return chunks.map((chunk) => ({ role: message.role, content: chunk }));
+  });
+}
 
 export const createChat = mutation({
   args: {
@@ -30,27 +104,45 @@ export const createChat = mutation({
       throw new Error("User not found");
     }
 
-    // Feature gating: Limit free users to 10 chats
-    if (args.importMethod === "automatic" && user.plan !== "pro") {
-      const chats = await ctx.db
-        .query("chats")
-        .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
-        .collect();
+    const now = Date.now();
+    // Feature gating: automatic imports are limited by plan per UTC month.
+    if (args.importMethod === "automatic") {
+      const planTier = getPersistedPlanTier(user.plan);
+      const monthlyLimit = getMonthlyAutomaticImportLimit(planTier);
 
-      const importedChatsCount = chats.filter(
-        (c) => c.source?.importMethod === "automatic",
-      ).length;
+      if (monthlyLimit !== null) {
+        const { monthStartMs, monthEndMs } = getUtcMonthRange(now);
+        const chats = await ctx.db
+          .query("chats")
+          .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
+          .collect();
 
-      if (importedChatsCount >= 10) {
-        throw new ConvexError({
-          code: "FREE_TIER_IMPORT_LIMIT",
-          message:
-            "Free tier limit reached (10 imports). Please upgrade to Pro to continue importing.",
-        });
+        const importedChatsThisMonthCount = chats.filter(
+          (chat) =>
+            chat.source.importMethod === "automatic" &&
+            chat.source.importedAt >= monthStartMs &&
+            chat.source.importedAt < monthEndMs,
+        ).length;
+
+        if (importedChatsThisMonthCount >= monthlyLimit) {
+          if (planTier === "free") {
+            throw new ConvexError({
+              code: "FREE_TIER_IMPORT_LIMIT",
+              message:
+                `Free tier monthly import limit reached (${FREE_MONTHLY_AUTOMATIC_IMPORT_LIMIT}/month). Please try again next month or upgrade to Starter or Pro.`,
+            });
+          }
+
+          throw new ConvexError({
+            code: "STARTER_TIER_IMPORT_LIMIT",
+            message:
+              `Starter plan monthly import limit reached (${STARTER_MONTHLY_AUTOMATIC_IMPORT_LIMIT}/month). Please try again next month or upgrade to Pro.`,
+          });
+        }
       }
     }
 
-    const now = Date.now();
+    const messagesForStorage = expandMessagesForStorage(args.messages);
 
     const chatId = await ctx.db.insert("chats", {
       ownerId: user._id,
@@ -65,26 +157,173 @@ export const createChat = mutation({
       },
     });
 
-    // Insert imported messages
-    for (let i = 0; i < args.messages.length; i++) {
-      const msg = args.messages[i];
-      await ctx.db.insert("messages", {
-        chatId,
-        ownerId: user._id,
-        role: msg.role,
-        content: msg.content,
-        createdAt: now,
-        order: i,
-        metadata: {
-          isImported: true,
-        },
-      });
-    }
+    // Insert imported messages in parallel while preserving deterministic order values.
+    await Promise.all(
+      messagesForStorage.map((msg, index) =>
+        ctx.db.insert("messages", {
+          chatId,
+          ownerId: user._id,
+          role: msg.role,
+          content: msg.content,
+          createdAt: now,
+          order: index,
+          metadata: {
+            isImported: true,
+          },
+        }),
+      ),
+    );
 
     // Fixed message removed in favor of dynamic client-side generation
 
     return chatId;
   }
+});
+
+export const appendImportedMessagesToChat = mutation({
+  args: {
+    chatId: v.id("chats"),
+    title: v.string(),
+    messages: v.array(
+      v.object({
+        role: v.union(v.literal("system"), v.literal("user"), v.literal("assistant")),
+        content: v.string(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkUserId", identity.subject))
+      .unique();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const chat = await ctx.db.get(args.chatId);
+    if (!chat || chat.ownerId !== user._id) {
+      throw new Error("Unauthorized");
+    }
+
+    const existingMessages = await ctx.db
+      .query("messages")
+      .withIndex("by_chat_order", (q) => q.eq("chatId", args.chatId))
+      .collect();
+
+    const alreadyImported = existingMessages.some(
+      (message) => message.metadata?.isImported,
+    );
+    if (alreadyImported) {
+      return { insertedCount: 0, skipped: true };
+    }
+
+    const nextOrderStart =
+      existingMessages.length > 0
+        ? Math.max(...existingMessages.map((message) => message.order)) + 1
+        : 0;
+    const now = Date.now();
+    const messagesForStorage = expandMessagesForStorage(args.messages);
+
+    await Promise.all(
+      messagesForStorage.map((message, index) =>
+        ctx.db.insert("messages", {
+          chatId: args.chatId,
+          ownerId: user._id,
+          role: message.role,
+          content: message.content,
+          createdAt: now,
+          order: nextOrderStart + index,
+          metadata: {
+            isImported: true,
+          },
+        }),
+      ),
+    );
+
+    const nextTitle = args.title.trim() || chat.title || "Imported Chat";
+    await ctx.db.patch(args.chatId, {
+      title: nextTitle,
+      updatedAt: now,
+    });
+
+    return { insertedCount: messagesForStorage.length, skipped: false };
+  },
+});
+
+export const appendImportFailureMessageToChat = mutation({
+  args: {
+    chatId: v.id("chats"),
+    errorMessage: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkUserId", identity.subject))
+      .unique();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const chat = await ctx.db.get(args.chatId);
+    if (!chat || chat.ownerId !== user._id) {
+      throw new Error("Unauthorized");
+    }
+
+    const existingMessages = await ctx.db
+      .query("messages")
+      .withIndex("by_chat_order", (q) => q.eq("chatId", args.chatId))
+      .collect();
+
+    const hasFailureMessage = existingMessages.some(
+      (message) =>
+        message.metadata?.isImported &&
+        message.role === "assistant" &&
+        message.content.startsWith("Import failed:"),
+    );
+    if (hasFailureMessage) {
+      return { skipped: true };
+    }
+
+    const nextOrder =
+      existingMessages.length > 0
+        ? Math.max(...existingMessages.map((message) => message.order)) + 1
+        : 0;
+    const now = Date.now();
+    const sanitizedError = args.errorMessage.trim() || "Unknown import error";
+
+    await ctx.db.insert("messages", {
+      chatId: args.chatId,
+      ownerId: user._id,
+      role: "assistant",
+      content: `Import failed: ${sanitizedError}`,
+      createdAt: now,
+      order: nextOrder,
+      metadata: {
+        isImported: true,
+      },
+    });
+
+    if (chat.title.toLowerCase().startsWith("importing")) {
+      await ctx.db.patch(args.chatId, {
+        title: "Import failed",
+        updatedAt: now,
+      });
+    }
+
+    return { skipped: false };
+  },
 });
 
 export const getChat = query({

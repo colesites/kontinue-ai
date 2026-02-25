@@ -9,8 +9,6 @@ export function PillLink({
   href?: string;
   children: React.ReactNode;
 }) {
-  // Extract domain for display
-  let displayText = children;
   let domain = "";
   
   try {
@@ -21,6 +19,8 @@ export function PillLink({
   } catch {
     // Invalid URL, just use the href as-is
   }
+
+  const displayText = children;
 
   return (
     <a

@@ -1,6 +1,37 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
+import { getPersistedPlanTier, isPersistedPaidPlan } from "./lib/plan";
+import {
+  getMonthlyAutomaticImportLimit,
+  getUtcMonthRange,
+} from "./lib/import_limits";
 import { internal } from "./_generated/api";
+
+const FREE_MONTHLY_LIMIT = 30;
+const STARTER_PREMIUM_LIMIT = 30;
+const STARTER_STANDARD_LIMIT = 270;
+const PRO_PREMIUM_LIMIT = 100;
+const PRO_STANDARD_LIMIT = 1400;
+
+function getPaidPlanLimits(planTier: "starter" | "pro"): {
+  label: "Starter" | "Pro";
+  premiumLimit: number;
+  standardLimit: number;
+} {
+  if (planTier === "pro") {
+    return {
+      label: "Pro",
+      premiumLimit: PRO_PREMIUM_LIMIT,
+      standardLimit: PRO_STANDARD_LIMIT,
+    };
+  }
+
+  return {
+    label: "Starter",
+    premiumLimit: STARTER_PREMIUM_LIMIT,
+    standardLimit: STARTER_STANDARD_LIMIT,
+  };
+}
 
 export const getMessages = query({
   args: { chatId: v.id("chats") },
@@ -61,8 +92,9 @@ export const addMessage = mutation({
 
     // Rate limiting (requests only): apply to user messages
     if (args.role === "user") {
-      const isPro = user.plan === "pro";
-      const RPM_LIMIT = isPro ? 10 : 5;
+      const planTier = getPersistedPlanTier(user.plan);
+      const isPaidPlan = isPersistedPaidPlan(user.plan);
+      const RPM_LIMIT = isPaidPlan ? 10 : 5;
 
       const nowMs = Date.now();
       const minuteBucketStartMs = Math.floor(nowMs / 60_000) * 60_000;
@@ -74,23 +106,19 @@ export const addMessage = mutation({
         1,
       );
 
-      // ── Free users: single monthly quota (20/month) ─────────────────────────
-      // ── Pro users: two monthly quotas split by model tier ────────────────────
-      //     30 messages on premium models + 270 on standard models = 300 total
       const premiumBucketType = "month_premium" as const;
       const standardBucketType = "month_standard" as const;
-      const FREE_MONTHLY_LIMIT = 20;
-      const PRO_PREMIUM_LIMIT = 30;
-      const PRO_STANDARD_LIMIT = 270;
 
-      if (isPro) {
+      if (isPaidPlan) {
+        const paidPlanTier = planTier === "pro" ? "pro" : "starter";
+        const limits = getPaidPlanLimits(paidPlanTier);
         const isModelPremium = args.isPremiumModel ?? false;
         const activeBucketType = isModelPremium
           ? premiumBucketType
           : standardBucketType;
         const activeLimit = isModelPremium
-          ? PRO_PREMIUM_LIMIT
-          : PRO_STANDARD_LIMIT;
+          ? limits.premiumLimit
+          : limits.standardLimit;
 
         const [minuteUsage, periodicUsage] = await Promise.all([
           ctx.db
@@ -124,12 +152,17 @@ export const addMessage = mutation({
         }
         if (periodicCount >= activeLimit) {
           throw new ConvexError({
-            code: isModelPremium
-              ? "RATE_LIMIT_PRO_PREMIUM"
-              : "RATE_LIMIT_PRO_STANDARD",
+            code:
+              paidPlanTier === "pro"
+                ? isModelPremium
+                  ? "RATE_LIMIT_PRO_PREMIUM"
+                  : "RATE_LIMIT_PRO_STANDARD"
+                : isModelPremium
+                  ? "RATE_LIMIT_STARTER_PREMIUM"
+                  : "RATE_LIMIT_STARTER_STANDARD",
             message: isModelPremium
-              ? `Monthly premium-model limit reached (${PRO_PREMIUM_LIMIT} messages/month on premium models). Switch to a standard model or try again next month.`
-              : `Monthly standard-model limit reached (${PRO_STANDARD_LIMIT} messages/month on standard models). Try again next month.`,
+              ? `Monthly premium-model limit reached (${limits.premiumLimit} messages/month on premium models for the ${limits.label} plan). Switch to a standard model or try again next month.`
+              : `Monthly standard-model limit reached (${limits.standardLimit} messages/month on standard models for the ${limits.label} plan). Try again next month.`,
           });
         }
 
@@ -197,7 +230,7 @@ export const addMessage = mutation({
         if (monthCount >= FREE_MONTHLY_LIMIT) {
           throw new ConvexError({
             code: "RATE_LIMIT_MONTHLY",
-            message: `Monthly message limit reached (${FREE_MONTHLY_LIMIT} messages/month). Please try again next month or upgrade to Pro.`,
+            message: `Monthly message limit reached (${FREE_MONTHLY_LIMIT} messages/month). Please try again next month or upgrade to Starter or Pro.`,
           });
         }
 
@@ -331,8 +364,10 @@ export const updateChatTitleInternal = internalMutation({
   },
 });
 
-/** Returns the current-month usage counts for the logged-in user.
- *  Used by the Settings page to render the usage tracker. */
+/** Returns usage for the logged-in user:
+ *  - monthly message usage
+ *  - monthly automatic import usage
+ *  Used by the Settings page usage tracker. */
 export const getMonthlyUsage = query({
   args: {},
   handler: async (ctx) => {
@@ -346,10 +381,12 @@ export const getMonthlyUsage = query({
 
     if (!user) return null;
 
-    const d = new Date();
-    const monthBucketStartMs = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
+    const nowMs = Date.now();
+    const { monthStartMs, monthEndMs } = getUtcMonthRange(nowMs);
+    const monthBucketStartMs = monthStartMs;
+    const planTier = getPersistedPlanTier(user.plan);
 
-    const [freeMonthly, proPremium, proStandard] = await Promise.all([
+    const [freeMonthly, proPremium, proStandard, chats] = await Promise.all([
       ctx.db
         .query("usage")
         .withIndex("by_owner_bucket", (q) =>
@@ -368,19 +405,44 @@ export const getMonthlyUsage = query({
           q.eq("ownerId", user._id).eq("bucketType", "month_standard").eq("bucketStartMs", monthBucketStartMs),
         )
         .unique(),
+      ctx.db
+        .query("chats")
+        .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
+        .collect(),
     ]);
 
+    const isPaid = planTier !== "free";
+    const paidTier = planTier === "pro" ? "pro" : "starter";
+    const paidLimits = getPaidPlanLimits(paidTier);
+    const paidPremiumUsed = proPremium?.requestCount ?? 0;
+    const paidStandardUsed = proStandard?.requestCount ?? 0;
+    const paidTotalUsed = paidPremiumUsed + paidStandardUsed;
+    const paidPremiumLimit = isPaid ? paidLimits.premiumLimit : 0;
+    const paidStandardLimit = isPaid ? paidLimits.standardLimit : 0;
+    const paidTotalLimit = paidPremiumLimit + paidStandardLimit;
+    const monthlyImportUsed = chats.filter(
+      (chat) =>
+        chat.source.importMethod === "automatic" &&
+        chat.source.importedAt >= monthStartMs &&
+        chat.source.importedAt < monthEndMs,
+    ).length;
+    const monthlyImportLimit = getMonthlyAutomaticImportLimit(planTier);
+
     return {
-      isPro: user.plan === "pro",
+      planTier,
+      isPaid,
       // Free tier
       freeMonthlyUsed: freeMonthly?.requestCount ?? 0,
-      freeMonthlyLimit: 20,
-      // Pro tier (split)
-      proPremiumUsed: proPremium?.requestCount ?? 0,
-      proPremiumLimit: 30,
-      proStandardUsed: proStandard?.requestCount ?? 0,
-      proStandardLimit: 270,
+      freeMonthlyLimit: FREE_MONTHLY_LIMIT,
+      // Paid tiers (Starter and Pro)
+      paidPremiumUsed,
+      paidPremiumLimit,
+      paidStandardUsed,
+      paidStandardLimit,
+      paidTotalUsed,
+      paidTotalLimit,
+      monthlyImportUsed,
+      monthlyImportLimit,
     };
   },
 });
-

@@ -36,7 +36,7 @@ export function ChatMessage({
         <div
           className={cn(
             "rounded-2xl border",
-            isImageOnly ? "px-3 py-3" : "px-5 py-4",
+            isImageOnly ? "px-3 py-3" : "px-4 py-3",
             "shadow-sm shadow-black/20",
             isUser
               ? "bg-primary/10 border-primary/20"

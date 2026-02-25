@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { CiGlobe } from "react-icons/ci";
-import { FaPaperclip } from "react-icons/fa";
 import { IoMicOutline } from "react-icons/io5";
 
 import {
@@ -13,18 +11,22 @@ import {
   PromptInputFooter,
   PromptInputSubmit,
   PromptInputTextarea,
-  PromptInputTools,
   PromptInputProvider,
 } from "@/components/ai-elements/prompt-input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-import { AttachmentPreview } from "./AttachmentPreview";
-import { ChatInputModelSelector } from "./ChatInputModelSelector";
-import { ChatInputImageOptions } from "./ChatInputImageOptions";
+import { ChatInputBodyExtras } from "@/features/chat/components/ChatInputBodyExtras";
+import { ChatInputTools } from "@/features/chat/components/ChatInputTools";
 
 import { useSpeechInput } from "../hooks/use-speech-input";
 import { useFileAttachments } from "../hooks/use-file-attachments";
 import { useModelCapabilities } from "@/lib/use-model-capabilities";
 import { AVAILABLE_MODELS } from "@/lib/models";
+import { useIsProPlan } from "@/lib/use-plan-tier";
 import type { ChatInputProps } from "@/features/chat/types";
 
 export function ChatInput({
@@ -50,6 +52,7 @@ export function ChatInput({
 }) {
   const [inputValue, setInputValue] = useState("");
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
+  const canUsePaidFeatures = useIsProPlan();
 
   const { getCapabilities } = useModelCapabilities();
   const selectedModelData = AVAILABLE_MODELS.find((m) => m.id === model);
@@ -75,11 +78,20 @@ export function ChatInput({
     handleAttachClick,
     removeFile,
     clearFiles,
-  } = useFileAttachments();
+  } = useFileAttachments({ enabled: canUsePaidFeatures });
+
+  useEffect(() => {
+    if (!canUsePaidFeatures && attachedFiles.length > 0) {
+      clearFiles();
+    }
+  }, [attachedFiles.length, canUsePaidFeatures, clearFiles]);
 
   const handleSubmit = () => {
     if (!inputValue.trim()) return;
-    onSend(inputValue, attachedFiles.length > 0 ? attachedFiles : undefined);
+    onSend(
+      inputValue,
+      canUsePaidFeatures && attachedFiles.length > 0 ? attachedFiles : undefined,
+    );
     setInputValue("");
     clearFiles();
     if (isListening) stopListening();
@@ -97,101 +109,57 @@ export function ChatInput({
         >
           <PromptInputBody>
             <PromptInputTextarea />
-            {isListening && (
-              <div className="mt-2 px-1 text-xs text-primary/90">
-                Listening...{" "}
-                {activeRecognitionLanguage
-                  ? `(${activeRecognitionLanguage})`
-                  : ""}
-              </div>
-            )}
-            {attachedFiles.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-3 px-1">
-                {attachedFiles.map((file, index) => (
-                  <AttachmentPreview
-                    key={`${file.name}-${index}`}
-                    file={file}
-                    onRemove={() => removeFile(index)}
-                  />
-                ))}
-              </div>
-            )}
+            <ChatInputBodyExtras
+              isListening={isListening}
+              activeRecognitionLanguage={activeRecognitionLanguage}
+              attachedFiles={attachedFiles}
+              onRemoveFile={removeFile}
+            />
           </PromptInputBody>
           <PromptInputFooter>
-            <PromptInputTools>
-              <ChatInputModelSelector
-                model={model}
-                onModelChange={onModelChange}
-                open={modelSelectorOpen}
-                onOpenChange={setModelSelectorOpen}
-              />
-              <PromptInputButton
-                type="button"
-                onClick={onWebSearchToggle}
-                className={
-                  webSearchEnabled
-                    ? "bg-primary/10 text-primary hover:bg-primary/15"
-                    : "text-muted-foreground/70 hover:text-muted-foreground"
-                }
-                title={
-                  webSearchEnabled
-                    ? "Web search enabled"
-                    : canSearch
-                      ? "Enable web search"
-                      : "Enable web search (model support checked server-side)"
-                }
-              >
-                <CiGlobe className="h-4 w-4" />
-              </PromptInputButton>
-              <PromptInputButton
-                type="button"
-                onClick={handleAttachClick}
-                className="text-muted-foreground hover:text-foreground"
-                title="Attach files"
-              >
-                <FaPaperclip className="h-3.5 w-3.5" />
-              </PromptInputButton>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/*,text/*,application/json,application/xml,application/x-yaml,text/xml,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,video/mp4,video/webm,video/quicktime,audio/mpeg,audio/mp4,audio/aac,audio/wav,audio/ogg,audio/webm,audio/flac"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              {canGenerateImage &&
-                onImageAspectRatioChange &&
-                onImageSizeChange && (
-                  <ChatInputImageOptions
-                    model={model}
-                    imageAspectRatio={imageAspectRatio}
-                    imageSize={imageSize}
-                    onImageAspectRatioChange={onImageAspectRatioChange}
-                    onImageSizeChange={onImageSizeChange}
-                  />
-                )}
-            </PromptInputTools>
+            <ChatInputTools
+              model={model}
+              modelSelectorOpen={modelSelectorOpen}
+              onModelSelectorOpenChange={setModelSelectorOpen}
+              onModelChange={onModelChange}
+              canUsePaidFeatures={canUsePaidFeatures}
+              webSearchEnabled={canUsePaidFeatures ? webSearchEnabled : false}
+              onWebSearchToggle={onWebSearchToggle}
+              canSearch={canSearch}
+              canGenerateImage={canGenerateImage}
+              fileInputRef={fileInputRef}
+              onAttachClick={handleAttachClick}
+              onFileSelect={handleFileSelect}
+              imageAspectRatio={imageAspectRatio}
+              imageSize={imageSize}
+              onImageAspectRatioChange={onImageAspectRatioChange}
+              onImageSizeChange={onImageSizeChange}
+            />
             <div className="flex items-center gap-1">
-              <PromptInputButton
-                type="button"
-                onClick={toggleListening}
-                className={cn(
-                  "text-muted-foreground transition-colors",
-                  isListening
-                    ? "bg-primary/10 text-primary hover:bg-primary/20"
-                    : "hover:text-foreground",
-                )}
-                title={
-                  isListening
-                    ? "Stop voice input"
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PromptInputButton
+                    type="button"
+                    onClick={toggleListening}
+                    className={cn(
+                      "text-muted-foreground transition-colors",
+                      isListening
+                        ? "bg-primary/10 text-primary hover:bg-primary/20"
+                        : "hover:text-foreground",
+                    )}
+                    aria-label={isListening ? "Stop voice input" : "Start voice input"}
+                  >
+                    <IoMicOutline className="h-4 w-4" />
+                  </PromptInputButton>
+                </TooltipTrigger>
+                <TooltipContent sideOffset={6}>
+                  {isListening
+                    ? "Voice input is active. Click to stop."
                     : speechSupported
-                      ? "Start voice input"
-                      : "Speech recognition is not supported in this browser"
-                }
-                disabled={!speechSupported}
-              >
-                <IoMicOutline className="h-4 w-4" />
-              </PromptInputButton>
+                      ? "Use your microphone to dictate."
+                      : "Speech recognition is not supported in this browser."}
+                </TooltipContent>
+              </Tooltip>
               <PromptInputSubmit onStop={onStop} />
             </div>
           </PromptInputFooter>

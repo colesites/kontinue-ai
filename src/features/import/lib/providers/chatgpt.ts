@@ -56,8 +56,16 @@ export const chatgptParser: ProviderParser = {
           if (jsonMatch) {
             const data = JSON.parse(jsonMatch[0]);
             if (data.messages && Array.isArray(data.messages)) {
-              data.messages.forEach((msg: any, i: number) => {
-                if (msg.author?.role && msg.content?.parts) {
+              type ChatGPTMessageData = {
+                author?: { role?: string };
+                content?: { parts?: string[] };
+              };
+              data.messages.forEach((msg: ChatGPTMessageData, i: number) => {
+                if (
+                  msg.author?.role &&
+                  msg.content?.parts &&
+                  Array.isArray(msg.content.parts)
+                ) {
                   messages.push({
                     role: msg.author.role === "user" ? "user" : "assistant",
                     content: msg.content.parts.join("\n"),

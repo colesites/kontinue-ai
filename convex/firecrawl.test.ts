@@ -47,6 +47,26 @@ Hope it helps!`;
     expect(messages[1].content).toContain('console.log("Hello");');
   });
 
+  test("does not split on [USER]/[ASSISTANT] markers inside code blocks", () => {
+    const input = `[USER]:
+Show me an example
+
+[ASSISTANT]:
+Use this format:
+\`\`\`md
+[USER]:
+This is part of code, not a new turn
+\`\`\`
+Done.`;
+
+    const { messages } = parseNormalizedTranscript(input);
+
+    expect(messages).toHaveLength(2);
+    expect(messages[1].role).toBe("assistant");
+    expect(messages[1].content).toContain("[USER]:");
+    expect(messages[1].content).toContain("not a new turn");
+  });
+
   test("handles robustness: spacing and newlines", () => {
     const input = `
 [USER]:

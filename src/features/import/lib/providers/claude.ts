@@ -47,13 +47,21 @@ export const claudeParser: ProviderParser = {
           if (jsonMatch) {
             const data = JSON.parse(jsonMatch[0]);
             if (data.messages && Array.isArray(data.messages)) {
-              data.messages.forEach((msg: any, i: number) => {
+              type ClaudeMessageData = {
+                role?: string;
+                content?: string | { text?: string; [key: string]: unknown };
+              };
+              data.messages.forEach((msg: ClaudeMessageData, i: number) => {
                 if (msg.role && msg.content) {
                   messages.push({
-                    role: msg.role === "human" || msg.role === "user" ? "user" : "assistant",
-                    content: typeof msg.content === "string" 
-                      ? msg.content 
-                      : msg.content.text || JSON.stringify(msg.content),
+                    role:
+                      msg.role === "human" || msg.role === "user"
+                        ? "user"
+                        : "assistant",
+                    content:
+                      typeof msg.content === "string"
+                        ? msg.content
+                        : msg.content?.text || JSON.stringify(msg.content),
                     order: i,
                   });
                 }

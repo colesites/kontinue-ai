@@ -2,12 +2,22 @@ import { useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { validateFile } from "@/lib/file-upload";
 
-export function useFileAttachments() {
+export function useFileAttachments({
+  enabled = true,
+}: { enabled?: boolean } = {}) {
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!enabled) {
+        toast.error("File uploads are available on Starter/Pro plans.");
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        return;
+      }
+
       const files = Array.from(e.target.files || []);
       if (files.length === 0) return;
 
@@ -35,12 +45,16 @@ export function useFileAttachments() {
         fileInputRef.current.value = "";
       }
     },
-    [],
+    [enabled],
   );
 
   const handleAttachClick = useCallback(() => {
+    if (!enabled) {
+      toast.error("File uploads are available on Starter/Pro plans.");
+      return;
+    }
     fileInputRef.current?.click();
-  }, []);
+  }, [enabled]);
 
   const removeFile = useCallback((index: number) => {
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));

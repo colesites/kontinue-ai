@@ -16,7 +16,7 @@ import { PromptInputButton } from "@/components/ai-elements/prompt-input";
 import { CheckIcon } from "lucide-react";
 import { AVAILABLE_MODELS } from "@/lib/models";
 import { useModelCapabilities } from "@/lib/use-model-capabilities";
-import { useIsProPlan } from "@/lib/use-is-pro-plan";
+import { useIsProPlan } from "@/lib/use-plan-tier";
 
 type ChatInputModelSelectorProps = {
   model: string;

@@ -68,3 +68,68 @@ export const getCurrentUser = query({
   },
 });
 
+export const getDefaultModel = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkUserId", identity.subject))
+      .unique();
+
+    if (!user) {
+      return null;
+    }
+
+    const settings = await ctx.db
+      .query("userSettings")
+      .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
+      .collect();
+
+    return settings[0]?.defaultModel ?? null;
+  },
+});
+
+export const setDefaultModel = mutation({
+  args: { modelId: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkUserId", identity.subject))
+      .unique();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const settings = await ctx.db
+      .query("userSettings")
+      .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
+      .collect();
+
+    const [existing, ...duplicates] = settings;
+    if (existing) {
+      if (existing.defaultModel !== args.modelId) {
+        await ctx.db.patch(existing._id, { defaultModel: args.modelId });
+      }
+    } else {
+      await ctx.db.insert("userSettings", {
+        ownerId: user._id,
+        defaultModel: args.modelId,
+      });
+    }
+
+    await Promise.all(duplicates.map((setting) => ctx.db.delete(setting._id)));
+
+    return args.modelId;
+  },
+});

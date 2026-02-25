@@ -118,7 +118,7 @@ export const geminiParser: ProviderParser = {
   },
 };
 
-function extractGeminiMessages(data: any, messages: NormalizedMessage[]) {
+function extractGeminiMessages(data: unknown, messages: NormalizedMessage[]) {
   if (!data) return;
 
   // Recursively search for message-like structures
@@ -127,19 +127,22 @@ function extractGeminiMessages(data: any, messages: NormalizedMessage[]) {
       extractGeminiMessages(item, messages);
     }
   } else if (typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+
     // Look for common message patterns
-    if (data.content && typeof data.content === "string") {
-      const role = data.role === "user" || data.author === "user" ? "user" : "assistant";
+    if (obj.content && typeof obj.content === "string") {
+      const role =
+        obj.role === "user" || obj.author === "user" ? "user" : "assistant";
       messages.push({
         role,
-        content: data.content,
+        content: obj.content,
         order: messages.length,
       });
     }
 
     // Check nested objects
-    for (const key of Object.keys(data)) {
-      extractGeminiMessages(data[key], messages);
+    for (const key of Object.keys(obj)) {
+      extractGeminiMessages(obj[key], messages);
     }
   }
 }

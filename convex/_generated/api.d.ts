@@ -11,6 +11,8 @@
 import type * as chats from "../chats.js";
 import type * as files from "../files.js";
 import type * as firecrawl from "../firecrawl.js";
+import type * as lib_import_limits from "../lib/import_limits.js";
+import type * as lib_plan from "../lib/plan.js";
 import type * as messages from "../messages.js";
 import type * as titleGenerator from "../titleGenerator.js";
 import type * as users from "../users.js";
@@ -25,6 +27,8 @@ declare const fullApi: ApiFromModules<{
   chats: typeof chats;
   files: typeof files;
   firecrawl: typeof firecrawl;
+  "lib/import_limits": typeof lib_import_limits;
+  "lib/plan": typeof lib_plan;
   messages: typeof messages;
   titleGenerator: typeof titleGenerator;
   users: typeof users;

@@ -1,29 +1,5 @@
 import { z } from "zod";
-
-// SSRF protection: Block private networks, localhost, link-local, and metadata IPs
-const BLOCKED_IP_RANGES = [
-  /^127\./,                    // Loopback
-  /^10\./,                     // Private Class A
-  /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // Private Class B
-  /^192\.168\./,               // Private Class C
-  /^169\.254\./,               // Link-local
-  /^0\./,                      // Current network
-  /^100\.(6[4-9]|[7-9][0-9]|1[0-2][0-9])\./, // Carrier-grade NAT
-  /^198\.18\./,                // Benchmark testing
-  /^::1$/,                     // IPv6 loopback
-  /^fc00:/,                    // IPv6 unique local
-  /^fe80:/,                    // IPv6 link-local
-];
-
-const BLOCKED_HOSTNAMES = [
-  "localhost",
-  "127.0.0.1",
-  "0.0.0.0",
-  "::1",
-  "metadata.google.internal",
-  "169.254.169.254",           // AWS/GCP metadata
-  "metadata.google.com",
-];
+import { BLOCKED_HOSTNAMES, BLOCKED_IP_RANGES } from "./blocked-hosts";
 
 export function isBlockedHost(hostname: string): boolean {
   const lowerHost = hostname.toLowerCase();
@@ -75,8 +51,6 @@ export function detectProvider(url: string): Provider {
     const parsed = new URL(url);
     const hostname = parsed.hostname.toLowerCase();
 
-    const path = parsed.pathname.toLowerCase();
-
     switch (true) {
       case hostname.includes("chat.openai.com") ||
         hostname.includes("chatgpt.com"):
@@ -106,29 +80,16 @@ export function detectProvider(url: string): Provider {
   }
 }
 
-export function getProviderDisplayName(provider: Provider): string {
-  const names: Record<Provider, string> = {
-    chatgpt: "ChatGPT",
-    claude: "Claude",
-    gemini: "Gemini",
-    t3chat: "T3Chat",
-    perplexity: "Perplexity",
-    mistral: "Mistral",
-    unknown: "Unknown",
-  };
-  return names[provider];
-}
-
-export function getProviderColor(provider: Provider): string {
-  const colors: Record<Provider, string> = {
-    chatgpt: "#10a37f",
-    claude: "#cc785c",
-    gemini: "#4285f4",
-    t3chat: "#f8e6f4",
-    perplexity: "#20b8cd",
-    mistral: "#ffffff",
-    unknown: "#6b7280",
-  };
-  return colors[provider];
-}
+export const PROVIDER_CONFIG: Record<
+  Provider,
+  { name: string; color: string }
+> = {
+  chatgpt: { name: "ChatGPT", color: "#10a37f" },
+  claude: { name: "Claude", color: "#cc785c" },
+  gemini: { name: "Gemini", color: "#4285f4" },
+  t3chat: { name: "T3Chat", color: "#f8e6f4" },
+  perplexity: { name: "Perplexity", color: "#20b8cd" },
+  mistral: { name: "Mistral", color: "#ffffff" },
+  unknown: { name: "Unknown", color: "#6b7280" },
+};
 

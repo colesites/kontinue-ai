@@ -117,7 +117,10 @@ export const perplexityParser: ProviderParser = {
   },
 };
 
-function extractPerplexityMessages(data: any, messages: NormalizedMessage[]) {
+function extractPerplexityMessages(
+  data: unknown,
+  messages: NormalizedMessage[],
+) {
   if (!data) return;
 
   if (Array.isArray(data)) {
@@ -125,32 +128,34 @@ function extractPerplexityMessages(data: any, messages: NormalizedMessage[]) {
       extractPerplexityMessages(item, messages);
     }
   } else if (typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+
     // Look for query/answer patterns
-    if (data.query && typeof data.query === "string") {
+    if (typeof obj.query === "string") {
       messages.push({
         role: "user",
-        content: data.query,
+        content: obj.query,
         order: messages.length,
       });
     }
-    if (data.answer && typeof data.answer === "string") {
+    if (typeof obj.answer === "string") {
       messages.push({
         role: "assistant",
-        content: data.answer,
+        content: obj.answer,
         order: messages.length,
       });
     }
-    if (data.content && data.role) {
+    if (typeof obj.content === "string" && typeof obj.role === "string") {
       messages.push({
-        role: data.role === "user" ? "user" : "assistant",
-        content: data.content,
+        role: obj.role === "user" ? "user" : "assistant",
+        content: obj.content,
         order: messages.length,
       });
     }
 
-    for (const key of Object.keys(data)) {
+    for (const key of Object.keys(obj)) {
       if (key !== "query" && key !== "answer") {
-        extractPerplexityMessages(data[key], messages);
+        extractPerplexityMessages(obj[key], messages);
       }
     }
   }

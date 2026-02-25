@@ -58,7 +58,7 @@ export function PromptInputProvider({
 
 export interface PromptInputProps {
   children: React.ReactNode;
-  onSubmit: (message: any) => void;
+  onSubmit: () => void;
   value?: string;
   onValueChange?: (value: string) => void;
   isLoading?: boolean;
@@ -83,7 +83,7 @@ export function PromptInput({
 
   const handleSubmit = () => {
     if (!actualValue.trim() || isLoading || disabled) return;
-    onSubmit({ text: actualValue });
+    onSubmit();
     if (!isControlled) setInternalValue("");
   };
 
@@ -194,10 +194,8 @@ export function PromptInputButton({
 }
 
 export function PromptInputSubmit({
-  status,
   onStop,
 }: {
-  status?: string;
   onStop?: () => void;
 }) {
   const { onSubmit, value, isLoading } = usePromptInput();

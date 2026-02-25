@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, ExternalLink, Clock } from "lucide-react";
 import { cn } from "@/utils/cn";
-import { getProviderDisplayName, getProviderColor } from "@/utils/url-safety";
+import { PROVIDER_CONFIG } from "@/utils/url-safety";
 import type { Provider } from "@/utils/url-safety";
 import type { ImportedContextProps } from "@/features/chat/types";
 
@@ -33,15 +33,15 @@ export function ImportedContext({
         <div className="flex items-center gap-3">
           <div
             className="w-2 h-2 rounded-full"
-            style={{ backgroundColor: getProviderColor(providerTyped) }}
+            style={{ backgroundColor: PROVIDER_CONFIG[providerTyped].color }}
           />
           <span className="text-muted-foreground">
             Continued from{" "}
             <span
               className="font-medium"
-              style={{ color: getProviderColor(providerTyped) }}
+              style={{ color: PROVIDER_CONFIG[providerTyped].color }}
             >
-              {getProviderDisplayName(providerTyped)}
+              {PROVIDER_CONFIG[providerTyped].name}
             </span>
           </span>
           <span className="text-muted-foreground">•</span>
