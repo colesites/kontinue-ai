@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { FeedbackComposer } from "@/features/feedback/components/FeedbackComposer";
@@ -10,28 +9,10 @@ import { useFeedbackBoard } from "@/features/feedback/hooks/useFeedbackBoard";
 
 export function FeedbackBoardPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { form, isLoading, topPosts, newPosts, updateForm, createPost, votePost, addComment } =
     useFeedbackBoard();
 
-  const safeReturnTo = useMemo(() => {
-    const candidate = searchParams.get("returnTo");
-    if (!candidate) return null;
-    if (!candidate.startsWith("/") || candidate.startsWith("//")) return null;
-    return candidate;
-  }, [searchParams]);
-
   const goBack = () => {
-    if (safeReturnTo) {
-      router.push(safeReturnTo);
-      return;
-    }
-
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      router.back();
-      return;
-    }
-
     router.push("/");
   };
 

@@ -38,14 +38,7 @@ export function SidebarAccountSection({
   const searchParams = useSearchParams();
   const isPaid = planTier !== "free";
   const isTopTier = planTier === "pro";
-  const returnTo = useMemo(() => {
-    const query = searchParams.toString();
-    return query ? `${pathname}?${query}` : pathname;
-  }, [pathname, searchParams]);
-  const feedbackHref = {
-    pathname: "/feeback",
-    query: { returnTo },
-  };
+  const feedbackHref = "/feedback";
 
   return (
     <SidebarFooter className="border-t border-sidebar-border/60 p-4">

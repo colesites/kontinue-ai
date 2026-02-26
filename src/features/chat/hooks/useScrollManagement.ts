@@ -4,9 +4,11 @@ import { DisplayMessage } from "./useChatMessageTransformer";
 
 export function useScrollManagement(deps: DisplayMessage[]) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
   const [showScrollToBottomButton, setShowScrollToBottomButton] =
     useState(false);
   const [showScrollToTopButton, setShowScrollToTopButton] = useState(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const getScrollMetrics = useCallback(() => {
     const container = document.getElementById("chat-scroll-container");
@@ -46,8 +48,22 @@ export function useScrollManagement(deps: DisplayMessage[]) {
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = getScrollMetrics();
       const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-      setShowScrollToBottomButton(distanceFromBottom > 200);
-      setShowScrollToTopButton(scrollTop > 300);
+
+      const shouldShowBottom = distanceFromBottom > 200;
+      const shouldShowTop = scrollTop > 300;
+
+      setShowScrollToBottomButton(shouldShowBottom);
+      setShowScrollToTopButton(shouldShowTop);
+
+      if (shouldShowBottom || shouldShowTop) {
+        setIsUserScrolling(true);
+        if (scrollTimeoutRef.current) {
+          clearTimeout(scrollTimeoutRef.current);
+        }
+        scrollTimeoutRef.current = setTimeout(() => {
+          setIsUserScrolling(false);
+        }, 3000);
+      }
     };
 
     const target = document.getElementById("chat-scroll-container") || window;
@@ -57,13 +73,16 @@ export function useScrollManagement(deps: DisplayMessage[]) {
     return () => {
       target.removeEventListener("scroll", handleScroll);
       clearTimeout(timer);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
     };
   }, [deps.length, getScrollMetrics]);
 
   return {
     messagesEndRef,
-    showScrollToBottomButton,
-    showScrollToTopButton,
+    showScrollToBottomButton: showScrollToBottomButton && isUserScrolling,
+    showScrollToTopButton: showScrollToTopButton && isUserScrolling,
     scrollToBottom,
     scrollToTop,
   };

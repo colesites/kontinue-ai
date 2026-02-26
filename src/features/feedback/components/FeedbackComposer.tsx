@@ -1,5 +1,12 @@
 "use client";
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { type FeedbackPostType } from "@/features/feedback/types";
 
 type FeedbackComposerProps = {
@@ -44,14 +51,18 @@ export function FeedbackComposer({
           maxLength={2000}
         />
         <div className="flex flex-wrap items-center gap-2">
-          <select
+          <Select
             value={type}
-            onChange={(event) => onTypeChange(event.target.value as FeedbackPostType)}
-            className="h-10 rounded-xl border border-border/70 bg-background/70 px-3 text-sm outline-none ring-primary/40 focus:ring-2"
+            onValueChange={(value) => onTypeChange(value as FeedbackPostType)}
           >
-            <option value="feature">Feature Idea</option>
-            <option value="bug">Bug Report</option>
-          </select>
+            <SelectTrigger className="h-10 min-w-[168px] rounded-xl border-border/70 bg-background/70 text-sm focus-visible:ring-2 focus-visible:ring-primary/40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border-border/70">
+              <SelectItem value="feature">Feature Idea</SelectItem>
+              <SelectItem value="bug">Bug Report</SelectItem>
+            </SelectContent>
+          </Select>
           <button
             type="button"
             onClick={() => void onSubmit()}
