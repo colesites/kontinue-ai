@@ -74,6 +74,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
   const { isMobile, open, openMobile, setOpenMobile, setOpen } = useSidebar();
   const { chatId, chatTitle } = useChatContext();
   const isHome = pathname === "/";
+  const isChatRoute = pathname.startsWith("/chat/");
 
   const toolbarButtonClasses =
     "inline-flex h-8 w-8 items-center justify-center rounded-lg text-foreground/85 transition-colors hover:text-foreground hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
@@ -147,10 +148,13 @@ function ShellLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col min-h-0">
+        <div className={cn("flex flex-1 flex-col min-h-0", isChatRoute && "lg:pt-3")}>
           <div
             id="chat-scroll-container"
-            className={cn("flex-1 overflow-y-auto", isHome ? "pt-0" : "pt-9")}
+            className={cn(
+              "flex-1 overflow-y-auto",
+              isHome ? "pt-0" : isChatRoute ? "pt-14 lg:pt-0" : "pt-9",
+            )}
           >
             {children}
           </div>
