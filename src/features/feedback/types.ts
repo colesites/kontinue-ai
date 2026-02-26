@@ -6,6 +6,8 @@ export type FeedbackComment = {
   id: Id<"feedbackComments">;
   body: string;
   createdAt: number;
+  authorName: string;
+  authorImage?: string;
 };
 
 export type FeedbackPost = {

@@ -147,4 +147,10 @@ export default defineSchema({
   })
     .index("by_post_created", ["postId", "createdAt"])
     .index("by_owner", ["ownerId"]),
+
+  feedbackVotes: defineTable({
+    postId: v.id("feedbackPosts"),
+    ownerId: v.id("users"),
+    direction: v.union(v.literal("up"), v.literal("down")),
+  }).index("by_post_owner", ["postId", "ownerId"]),
 });

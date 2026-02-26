@@ -84,6 +84,19 @@ export const listPosts = query({
           .order("asc")
           .collect();
 
+        const commentsWithAuthors = await Promise.all(
+          comments.map(async (comment) => {
+            const author = await ctx.db.get(comment.ownerId);
+            return {
+              id: comment._id,
+              body: comment.body,
+              createdAt: comment.createdAt,
+              authorName: author?.name ?? "Anonymous",
+              authorImage: author?.imageUrl,
+            };
+          }),
+        );
+
         return {
           id: post._id,
           title: post.title,
@@ -92,11 +105,7 @@ export const listPosts = query({
           score: post.score,
           createdAt: post.createdAt,
           commentCount: post.commentCount,
-          comments: comments.map((comment) => ({
-            id: comment._id,
-            body: comment.body,
-            createdAt: comment.createdAt,
-          })),
+          comments: commentsWithAuthors,
         };
       }),
     );
@@ -147,7 +156,7 @@ export const votePost = mutation({
     direction: v.union(v.literal("up"), v.literal("down")),
   },
   handler: async (ctx, args) => {
-    await getOrCreateAuthenticatedUser(ctx);
+    const user = await getOrCreateAuthenticatedUser(ctx);
 
     const post = await ctx.db.get(args.postId);
     if (!post) {
@@ -157,9 +166,36 @@ export const votePost = mutation({
       });
     }
 
-    const scoreDelta = args.direction === "up" ? 1 : -1;
-    const nextScore = post.score + scoreDelta;
+    const existingVote = await ctx.db
+      .query("feedbackVotes")
+      .withIndex("by_post_owner", (q) =>
+        q.eq("postId", args.postId).eq("ownerId", user._id),
+      )
+      .unique();
 
+    let scoreDelta = 0;
+
+    if (existingVote) {
+      if (existingVote.direction === args.direction) {
+        // Same direction → toggle off (remove vote)
+        await ctx.db.delete(existingVote._id);
+        scoreDelta = args.direction === "up" ? -1 : 1;
+      } else {
+        // Opposite direction → switch vote (swing by 2)
+        await ctx.db.patch(existingVote._id, { direction: args.direction });
+        scoreDelta = args.direction === "up" ? 2 : -2;
+      }
+    } else {
+      // No existing vote → create one
+      await ctx.db.insert("feedbackVotes", {
+        postId: args.postId,
+        ownerId: user._id,
+        direction: args.direction,
+      });
+      scoreDelta = args.direction === "up" ? 1 : -1;
+    }
+
+    const nextScore = post.score + scoreDelta;
     await ctx.db.patch(post._id, {
       score: nextScore,
       updatedAt: Date.now(),

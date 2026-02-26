@@ -1,16 +1,29 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Flame, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { FeedbackComposer } from "@/features/feedback/components/FeedbackComposer";
 import { FeedbackPostCard } from "@/features/feedback/components/FeedbackPostCard";
+import { FeedbackPostModal } from "@/features/feedback/components/FeedbackPostModal";
 import { useFeedbackBoard } from "@/features/feedback/hooks/useFeedbackBoard";
+import { type FeedbackPost } from "@/features/feedback/types";
+import { cn } from "@/utils/cn";
 
 export function FeedbackBoardPage() {
   const router = useRouter();
   const { form, isLoading, topPosts, newPosts, updateForm, createPost, votePost, addComment } =
     useFeedbackBoard();
+  const [activeTab, setActiveTab] = useState<"top" | "new">("top");
+  const [selectedPost, setSelectedPost] = useState<FeedbackPost | null>(null);
+
+  const activePosts = activeTab === "top" ? topPosts : newPosts;
+
+  // Keep modal post data fresh when Convex updates the list
+  const liveSelectedPost = selectedPost
+    ? (newPosts.find((p) => p.id === selectedPost.id) ?? selectedPost)
+    : null;
 
   const goBack = () => {
     router.push("/");
@@ -32,7 +45,7 @@ export function FeedbackBoardPage() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="mb-6 flex items-center justify-between gap-3">
           <button
             type="button"
@@ -57,57 +70,63 @@ export function FeedbackBoardPage() {
           </p>
         </section>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <div className="space-y-4">
-            <FeedbackComposer
-              title={form.title}
-              details={form.details}
-              type={form.type}
-              onTitleChange={(value) => updateForm({ title: value })}
-              onDetailsChange={(value) => updateForm({ details: value })}
-              onTypeChange={(value) => updateForm({ type: value })}
-              onSubmit={publishPost}
-            />
-
-            <section className="space-y-3">
-              <div>
-                <h2 className="text-base font-semibold">Top</h2>
-                <p className="text-xs text-muted-foreground">
-                  Sorted by highest vote score.
-                </p>
-              </div>
-              {topPosts.map((post) => (
-                <FeedbackPostCard
-                  key={`top-${post.id}`}
-                  post={post}
-                  onVote={votePost}
-                  onComment={addComment}
-                />
-              ))}
-              {!isLoading && topPosts.length === 0 && (
-                <p className="rounded-xl border border-dashed border-border/70 bg-card/50 px-4 py-3 text-xs text-muted-foreground">
-                  No feedback yet. Be the first to post.
-                </p>
-              )}
-            </section>
-          </div>
+        <div className="mt-6 space-y-5">
+          <FeedbackComposer
+            title={form.title}
+            details={form.details}
+            type={form.type}
+            onTitleChange={(value) => updateForm({ title: value })}
+            onDetailsChange={(value) => updateForm({ details: value })}
+            onTypeChange={(value) => updateForm({ type: value })}
+            onSubmit={publishPost}
+          />
 
           <section className="space-y-3">
-            <div>
-              <h2 className="text-base font-semibold">New</h2>
-              <p className="text-xs text-muted-foreground">
-                Sorted by most recent posts.
-              </p>
+            <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/50 p-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab("top")}
+                className={cn(
+                  "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  activeTab === "top"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Flame className="h-3.5 w-3.5" />
+                Top
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("new")}
+                className={cn(
+                  "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  activeTab === "new"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                New
+              </button>
             </div>
-            {newPosts.map((post) => (
+
+            <p className="text-xs text-muted-foreground">
+              {activeTab === "top"
+                ? "Sorted by highest vote score."
+                : "Sorted by most recent posts."}
+            </p>
+
+            {activePosts.map((post) => (
               <FeedbackPostCard
-                key={`new-${post.id}`}
+                key={`${activeTab}-${post.id}`}
                 post={post}
                 onVote={votePost}
-                onComment={addComment}
+                onOpenDetail={() => setSelectedPost(post)}
               />
             ))}
-            {!isLoading && newPosts.length === 0 && (
+
+            {!isLoading && activePosts.length === 0 && (
               <p className="rounded-xl border border-dashed border-border/70 bg-card/50 px-4 py-3 text-xs text-muted-foreground">
                 No feedback yet. Be the first to post.
               </p>
@@ -120,6 +139,16 @@ export function FeedbackBoardPage() {
           </section>
         </div>
       </div>
+
+      <FeedbackPostModal
+        post={liveSelectedPost}
+        open={liveSelectedPost !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPost(null);
+        }}
+        onVote={votePost}
+        onComment={addComment}
+      />
     </main>
   );
 }
