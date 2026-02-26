@@ -30,11 +30,18 @@ export function MobileChatTurnNavigator({
   const [showTapHint, setShowTapHint] = useState(false);
   const tapHintTimerRef = useRef<number | null>(null);
   const { isArmed, registerTap } = useDoubleTapActivation();
+
+  // The visibility of this control on mobile should act like desktop:
+  // It only shows when showScrollToTopButton or showScrollToBottomButton is true
+  // (which means the user is actively scrolling and far from the edge).
+  const isVisible = showScrollToTopButton || showScrollToBottomButton;
+
   const quickAction = showScrollToBottomButton
     ? "bottom"
     : showScrollToTopButton
       ? "top"
       : "bottom";
+
   const quickIcon =
     quickAction === "bottom" ? (
       <ArrowDown className="h-3.5 w-3.5" />
@@ -77,7 +84,14 @@ export function MobileChatTurnNavigator({
 
   return (
     <>
-      <div className="fixed bottom-38 left-1/2 z-50 -translate-x-1/2 lg:hidden">
+      <div
+        className={cn(
+          "fixed bottom-38 left-1/2 z-50 -translate-x-1/2 lg:hidden transition-all duration-300",
+          isVisible
+            ? "translate-y-0 opacity-100"
+            : "pointer-events-none translate-y-4 opacity-0",
+        )}
+      >
         {showTapHint ? (
           <div className="pointer-events-none absolute -top-11 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-border/70 bg-background/95 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-lg backdrop-blur-sm">
             Tip: double-tap to open the scroll panel
