@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { FeedbackComposer } from "@/features/feedback/components/FeedbackComposer";
 import { FeedbackPostCard } from "@/features/feedback/components/FeedbackPostCard";
@@ -73,10 +73,6 @@ export function FeedbackBoardPage() {
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
             Post feature ideas or bug reports, vote on what matters most, and
             discuss with the community.
-          </p>
-          <p className="mt-4 inline-flex items-center gap-2 rounded-xl border border-border/70 bg-background/65 px-3 py-2 text-xs text-muted-foreground">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-            Live with Convex. New posts, votes, and comments sync for everyone.
           </p>
         </section>
 

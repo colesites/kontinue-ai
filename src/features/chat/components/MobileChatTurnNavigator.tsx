@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { MobileChatTurnNavigatorDialog } from "@/features/chat/components/MobileChatTurnNavigatorDialog";
 import { useDoubleTapActivation } from "@/features/chat/hooks/useDoubleTapActivation";
@@ -27,44 +27,74 @@ export function MobileChatTurnNavigator({
   onScrollToBottom,
 }: MobileChatTurnNavigatorProps) {
   const [open, setOpen] = useState(false);
+  const [showTapHint, setShowTapHint] = useState(false);
+  const tapHintTimerRef = useRef<number | null>(null);
   const { isArmed, registerTap } = useDoubleTapActivation();
   const quickAction = showScrollToBottomButton
     ? "bottom"
     : showScrollToTopButton
       ? "top"
-      : null;
+      : "bottom";
   const quickIcon =
     quickAction === "bottom" ? (
       <ArrowDown className="h-3.5 w-3.5" />
-    ) : quickAction === "top" ? (
-      <ArrowUp className="h-3.5 w-3.5" />
     ) : (
-      <span className="text-[9px]">{turns.length > 99 ? "99+" : turns.length}</span>
+      <ArrowUp className="h-3.5 w-3.5" />
     );
 
+  useEffect(() => {
+    return () => {
+      if (tapHintTimerRef.current) {
+        window.clearTimeout(tapHintTimerRef.current);
+      }
+    };
+  }, []);
+
+  const showHint = () => {
+    setShowTapHint(true);
+    if (tapHintTimerRef.current) {
+      window.clearTimeout(tapHintTimerRef.current);
+    }
+    tapHintTimerRef.current = window.setTimeout(() => {
+      setShowTapHint(false);
+      tapHintTimerRef.current = null;
+    }, 3200);
+  };
+
   const handleTriggerTap = () => {
+    showHint();
     registerTap({
       onSingleTap: () => {
         if (quickAction === "bottom") onScrollToBottom();
         if (quickAction === "top") onScrollToTop();
       },
-      onDoubleTap: () => setOpen(true),
+      onDoubleTap: () => {
+        setShowTapHint(false);
+        setOpen(true);
+      },
     });
   };
 
   return (
     <>
-      <button
-        type="button"
-        onClick={handleTriggerTap}
-        className={cn(
-          "fixed bottom-38 left-1/2 z-50 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-sm transition-all lg:hidden",
-          isArmed && "scale-105 border-primary/60 text-primary",
-        )}
-        aria-label={`Single tap quick scroll, double tap open navigator (${turns.length} turns)`}
-      >
-        {quickIcon}
-      </button>
+      <div className="fixed bottom-38 left-1/2 z-50 -translate-x-1/2 lg:hidden">
+        {showTapHint ? (
+          <div className="pointer-events-none absolute -top-11 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-border/70 bg-background/95 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-lg backdrop-blur-sm">
+            Tip: double-tap to open the scroll panel
+          </div>
+        ) : null}
+        <button
+          type="button"
+          onClick={handleTriggerTap}
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-full border border-border/70 bg-background/85 text-foreground shadow-lg backdrop-blur-sm transition-all",
+            isArmed && "scale-105 border-primary/60 text-primary",
+          )}
+          aria-label={`Single tap quick scroll, double tap open navigator (${turns.length} turns)`}
+        >
+          {quickIcon}
+        </button>
+      </div>
 
       <MobileChatTurnNavigatorDialog
         open={open}
