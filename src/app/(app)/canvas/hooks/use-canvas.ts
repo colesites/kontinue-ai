@@ -1,0 +1,222 @@
+"use client";
+
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { useSearchParams } from "next/navigation";
+import { api } from "@convex/_generated/api";
+import { toast } from "sonner";
+import type { Id } from "@convex/_generated/dataModel";
+import { usePlanTier } from "@/lib/use-plan-tier";
+import type { CreationData } from "../components/CreationCard";
+
+export function useCanvas() {
+  const planTier = usePlanTier();
+  const searchParams = useSearchParams();
+  const shareId = searchParams.get("id");
+  const isPro = planTier === "pro";
+  const isStarter = planTier === "starter";
+  const canGenerateImages = isPro || isStarter;
+  const canGenerateVideos = isPro;
+
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [publishingIds, setPublishingIds] = useState<Set<Id<"canvasCreations">>>(new Set());
+  const [expandedCreation, setExpandedCreation] = useState<CreationData | null>(null);
+  const [tab, setTab] = useState<"community" | "mine">("community");
+  const [pendingNewId, setPendingNewId] = useState<Id<"canvasCreations"> | null>(null);
+
+  // Convex queries
+  const publishedCreations = useQuery(api.canvas.listPublished, { sortBy: "likes" });
+  const myCreations = useQuery(api.canvas.listMyCreations);
+
+  // Auto-expand new creation
+  useMemo(() => {
+    if (pendingNewId && myCreations) {
+      const found = myCreations.find((c) => c._id === pendingNewId);
+      if (found) {
+        setExpandedCreation(found as CreationData);
+        setPendingNewId(null);
+      }
+    }
+  }, [pendingNewId, myCreations]);
+  const credits = useQuery(api.canvas.getCredits);
+  const myLikesRaw = useQuery(api.canvas.getMyLikes);
+
+  // Convex mutations
+  const createCreation = useMutation(api.canvas.createCreation);
+  const toggleLikeMutation = useMutation(api.canvas.toggleLike);
+  const publishMutation = useMutation(api.canvas.publishCreation);
+  const deductCreditsMutation = useMutation(api.canvas.deductCredits);
+
+  const myLikes = useMemo(() => {
+    return myLikesRaw
+      ? new Set(Array.isArray(myLikesRaw) ? (myLikesRaw as Id<"canvasCreations">[]) : [])
+      : new Set<Id<"canvasCreations">>();
+  }, [myLikesRaw]);
+
+  // Handle auto-expansion from URL ?id=... (Deep Linking)
+  useEffect(() => {
+    if (shareId) {
+      const allItems = [...(publishedCreations || []), ...(myCreations || [])];
+      const found = allItems.find((c) => c._id === shareId);
+      // Only set if we found it and it's not already expanded
+      if (found && found._id !== expandedCreation?._id) {
+        setExpandedCreation(found as CreationData);
+      }
+    }
+    // We intentionally exclude expandedCreation from dependencies to avoid re-opening loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shareId, publishedCreations, myCreations]);
+
+  // Sync expandedCreation state back to the URL (using replaceState to avoid flickering)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const currentId = params.get("id");
+    const newId = expandedCreation?._id;
+
+    if (newId !== currentId) {
+      if (newId) {
+        params.set("id", newId);
+      } else {
+        params.delete("id");
+      }
+      const newUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+      window.history.replaceState({ ...window.history.state, as: newUrl, url: newUrl }, "", newUrl);
+    }
+  }, [expandedCreation]);
+
+  const handleGenerate = useCallback(
+    async (opts: {
+      prompt: string;
+      mode: "image" | "video";
+      model: string;
+      aspectRatio: string;
+      duration?: number;
+      quality?: "standard" | "pro";
+      audio?: boolean;
+    }) => {
+      if (isGenerating) return;
+
+      if (opts.mode === "image" && !canGenerateImages) {
+        toast.error("Upgrade to Starter or Pro to generate images.");
+        return;
+      }
+      if (opts.mode === "video" && !canGenerateVideos) {
+        toast.error("Upgrade to Pro to generate videos.");
+        return;
+      }
+
+      setIsGenerating(true);
+      try {
+        if (opts.mode === "video") {
+          const currentCredits = credits;
+          const cost = (opts.duration ?? 5) * 20;
+          if (!currentCredits || currentCredits.remaining < cost) {
+            toast.error(`Not enough credits. You have ${currentCredits?.remaining ?? 0} remaining, need ${cost}.`);
+            setIsGenerating(false);
+            return;
+          }
+        }
+
+        const endpoint = opts.mode === "image" ? "/api/canvas/generate-image" : "/api/canvas/generate-video";
+        toast.info(opts.mode === "image" ? "Generating image..." : `Generating ${opts.duration ?? 5}s video...`);
+
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: opts.prompt,
+            model: opts.model,
+            aspectRatio: opts.aspectRatio,
+            ...(opts.mode === "video" && {
+              duration: opts.duration,
+              quality: opts.quality,
+              audio: opts.audio,
+            }),
+          }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Generation failed");
+
+        if (opts.mode === "video" && opts.duration) {
+          await deductCreditsMutation({ seconds: opts.duration });
+        }
+
+        const newId = await createCreation({
+          mediaType: opts.mode,
+          mediaUrl: data.mediaUrl!,
+          pathname: data.pathname!,
+          prompt: opts.prompt,
+          modelId: opts.model,
+          aspectRatio: opts.aspectRatio,
+          duration: opts.duration,
+          quality: opts.quality,
+          audio: opts.audio,
+        });
+
+        toast.success(`${opts.mode === "image" ? "Image" : "Video"} generated!`);
+        
+        // Take user to their creations and open the new one
+        setTab("mine");
+        if (newId) setPendingNewId(newId);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Generation failed");
+      } finally {
+        setIsGenerating(false);
+      }
+    },
+    [isGenerating, credits, createCreation, deductCreditsMutation, canGenerateImages, canGenerateVideos]
+  );
+
+  const handleToggleLike = useCallback(
+    async (creationId: Id<"canvasCreations">) => {
+      try {
+        await toggleLikeMutation({ creationId });
+      } catch {
+        toast.error("Failed to update like");
+      }
+    },
+    [toggleLikeMutation]
+  );
+
+  const handlePublish = useCallback(
+    async (creationId: Id<"canvasCreations">) => {
+      setPublishingIds((prev) => new Set(prev).add(creationId));
+      try {
+        const result = await publishMutation({ creationId });
+        toast.success(result.isPublished ? "Published to community!" : "Unpublished");
+      } catch {
+        toast.error("Failed to publish");
+      } finally {
+        setPublishingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(creationId);
+          return next;
+        });
+      }
+    },
+    [publishMutation]
+  );
+
+  const displayCreations = tab === "community"
+    ? (publishedCreations as CreationData[] | undefined)
+    : (myCreations as CreationData[] | undefined);
+
+  return {
+    tab,
+    setTab,
+    isGenerating,
+    expandedCreation,
+    setExpandedCreation,
+    displayCreations,
+    credits,
+    myLikes,
+    publishingIds,
+    handleGenerate,
+    handleToggleLike,
+    handlePublish,
+    isPro,
+    canGenerateImages,
+    canGenerateVideos,
+  };
+}

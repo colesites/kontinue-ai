@@ -74,6 +74,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
   const { isMobile, open, openMobile, setOpenMobile, setOpen } = useSidebar();
   const { chatId, chatTitle } = useChatContext();
   const isHome = pathname === "/";
+  const isCanvas = pathname === "/canvas";
   const isChatRoute = pathname.startsWith("/chat/");
 
   const toolbarButtonClasses =
@@ -112,11 +113,12 @@ function ShellLayout({ children }: { children: ReactNode }) {
       <AppSidebar />
       <SidebarInset className="bg-background h-dvh flex flex-col overflow-hidden">
         {/* Floating top controls */}
-        <div className="pointer-events-none fixed inset-x-0 top-3 z-40 flex items-start justify-between px-3">
+        <div className="pointer-events-none fixed inset-x-0 top-3 z-50 flex items-start justify-between px-3">
           <div
             className={cn(
-              "pointer-events-auto flex items-center gap-3 rounded-2xl border border-border/50 bg-secondary/70 p-1 text-foreground shadow-sm backdrop-blur-sm",
+              "pointer-events-auto flex items-center gap-3 rounded-2xl border border-border/50 bg-secondary/70 p-1 text-foreground shadow-sm backdrop-blur-sm transition-all duration-300",
               hideTriggerGroup && "pointer-events-none opacity-0 scale-95",
+              isCanvas && "bg-zinc-900 border-white/10 text-white shadow-xl",
             )}
             aria-hidden={hideTriggerGroup}
           >
@@ -148,12 +150,21 @@ function ShellLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <div className={cn("flex flex-1 flex-col min-h-0", isChatRoute && "lg:pt-3")}>
+        <div
+          className={cn(
+            "flex flex-1 flex-col min-h-0",
+            isChatRoute && "lg:pt-3",
+          )}
+        >
           <div
             id="chat-scroll-container"
             className={cn(
               "flex-1 overflow-y-auto",
-              isHome ? "pt-0" : isChatRoute ? "pt-14 lg:pt-0" : "pt-9",
+              isHome || isCanvas
+                ? "pt-0"
+                : isChatRoute
+                  ? "pt-14 lg:pt-0"
+                  : "pt-9",
             )}
           >
             {children}

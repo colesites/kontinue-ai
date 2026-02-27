@@ -1,5 +1,10 @@
 import Link from "next/link";
-import { MessageSquarePlus, Search as SearchIcon, X } from "lucide-react";
+import {
+  MessageSquarePlus,
+  Search as SearchIcon,
+  X,
+  Palette,
+} from "lucide-react";
 import {
   SidebarHeader,
   SidebarInput,
@@ -40,6 +45,14 @@ export function SidebarHeaderSection({
         >
           <MessageSquarePlus size={18} />
           <span>New Chat</span>
+        </Link>
+        <Link
+          href="/canvas"
+          onClick={onNavigate}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sidebar-border/60 bg-sidebar-accent/30 px-4 py-2.5 text-sm font-medium text-sidebar-foreground shadow-sm transition-colors hover:bg-sidebar-accent/50"
+        >
+          <Palette size={18} />
+          <span>Canvas</span>
         </Link>
         <div className="relative">
           <SearchIcon

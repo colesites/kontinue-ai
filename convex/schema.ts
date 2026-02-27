@@ -153,4 +153,43 @@ export default defineSchema({
     ownerId: v.id("users"),
     direction: v.union(v.literal("up"), v.literal("down")),
   }).index("by_post_owner", ["postId", "ownerId"]),
+
+  // ── Canvas ──────────────────────────────────────────────
+  canvasCreations: defineTable({
+    ownerId: v.id("users"),
+    ownerName: v.optional(v.string()),
+    ownerImageUrl: v.optional(v.string()),
+    mediaType: v.union(v.literal("image"), v.literal("video")),
+    mediaUrl: v.string(), // Vercel Blob URL
+    pathname: v.string(), // Blob pathname for deletion
+    prompt: v.string(),
+    modelId: v.string(),
+    aspectRatio: v.string(), // e.g. "16:9", "1:1"
+    duration: v.optional(v.number()), // seconds, video only
+    quality: v.optional(v.string()), // "standard" | "pro", video only
+    audio: v.optional(v.boolean()), // video only
+    referenceImageUrl: v.optional(v.string()),
+    isPublished: v.boolean(),
+    likeCount: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_published", ["isPublished", "likeCount"])
+    .index("by_published_created", ["isPublished", "createdAt"]),
+
+  canvasLikes: defineTable({
+    creationId: v.id("canvasCreations"),
+    ownerId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_creation_owner", ["creationId", "ownerId"])
+    .index("by_owner", ["ownerId"]),
+
+  videoCredits: defineTable({
+    ownerId: v.id("users"),
+    monthKey: v.string(), // "2026-02" format
+    totalCredits: v.number(), // 300
+    usedCredits: v.number(),
+    updatedAt: v.number(),
+  }).index("by_owner_month", ["ownerId", "monthKey"]),
 });

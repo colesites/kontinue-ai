@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as canvas from "../canvas.js";
 import type * as chats from "../chats.js";
 import type * as feedback from "../feedback.js";
 import type * as files from "../files.js";
@@ -25,6 +26,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  canvas: typeof canvas;
   chats: typeof chats;
   feedback: typeof feedback;
   files: typeof files;
