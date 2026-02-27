@@ -1,10 +1,5 @@
 import Link from "next/link";
-import {
-  MessageSquarePlus,
-  Search as SearchIcon,
-  X,
-  Presentation,
-} from "lucide-react";
+import { MessageSquarePlus, Search as SearchIcon, X } from "lucide-react";
 import {
   SidebarHeader,
   SidebarInput,
@@ -33,7 +28,9 @@ export function SidebarHeaderSection({
             className="h-8 w-8 border border-sidebar-border/60 text-sidebar-foreground/80 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground"
           />
           <div>
-            <p className="text-base font-semibold tracking-tight">Kontinue AI</p>
+            <p className="text-base font-semibold tracking-tight">
+              Kontinue AI
+            </p>
           </div>
         </div>
         <Link
@@ -43,14 +40,6 @@ export function SidebarHeaderSection({
         >
           <MessageSquarePlus size={18} />
           <span>New Chat</span>
-        </Link>
-        <Link
-          href="/slides"
-          onClick={onNavigate}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/20 px-4 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent/40"
-        >
-          <Presentation size={18} />
-          <span>Docs to Slides</span>
         </Link>
         <div className="relative">
           <SearchIcon
