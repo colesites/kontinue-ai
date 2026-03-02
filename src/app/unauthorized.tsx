@@ -11,22 +11,26 @@ export default function UnauthorizedPage() {
           <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
           <div className="relative bg-secondary/50 border border-border p-6 rounded-2xl shadow-2xl backdrop-blur-sm">
             <Lock className="w-12 h-12 text-primary mx-auto mb-4" />
-            <h1 className="text-3xl font-bold bg-linear-to-r from-primary to-accent bg-clip-text text-transparent mb-2">
+            <h1 className="text-3xl font-bold text-foreground mb-2">
               Access Restricted
             </h1>
-            <p className="text-muted-foreground text-lg leading-relaxed mb-6">
-              Kontinue AI is currently in a private beta. Your email address has not been whitelisted for access yet.
+            <p className="text-foreground/90 text-lg leading-relaxed mb-6">
+              Kontinue AI is currently in a private beta. Your email address has
+              not been whitelisted for access yet.
             </p>
-            
+
             <div className="space-y-3">
               <Link href="/sign-in" className="block">
                 <Button className="w-full font-semibold shadow-lg shadow-primary/20">
                   Try Another Account
                 </Button>
               </Link>
-              
+
               <SignOutButton>
-                <Button variant="outline" className="w-full">
+                <Button
+                  variant="outline"
+                  className="w-full border-border/50 hover:bg-secondary/80"
+                >
                   Sign Out
                 </Button>
               </SignOutButton>
@@ -36,7 +40,10 @@ export default function UnauthorizedPage() {
 
         <p className="text-sm text-muted-foreground">
           If you believe this is an error, please contact support at{" "}
-          <a href="mailto:support@kontinueai.com" className="text-primary hover:underline">
+          <a
+            href="mailto:support@kontinueai.com"
+            className="text-primary hover:underline"
+          >
             support@kontinueai.com
           </a>
         </p>
