@@ -85,6 +85,26 @@ const CLERK_THEME_COLORS = {
       border: "#4d4055",
     },
   },
+  normal: {
+    light: {
+      primary: "#000000",
+      background: "#ffffff",
+      inputBackground: "#ffffff",
+      inputText: "#000000",
+      text: "#000000",
+      textSecondary: "#000000",
+      border: "#000000",
+    },
+    dark: {
+      primary: "#ffffff",
+      background: "#000000",
+      inputBackground: "#000000",
+      inputText: "#ffffff",
+      text: "#ffffff",
+      textSecondary: "#ffffff",
+      border: "#ffffff",
+    },
+  },
 } as const;
 
 export function useClerkTheme() {

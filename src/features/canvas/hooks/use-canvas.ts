@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import type { Id } from "@convex/_generated/dataModel";
 import { usePlanTier } from "@/lib/use-plan-tier";
 import type { CreationData } from "../components/CreationCard";
+import { IMAGE_MODELS, VIDEO_MODELS } from "@/lib/canvas-models";
 
 import { useCanvasContext } from "../contexts/CanvasContext";
 
@@ -132,19 +133,33 @@ export function useCanvas() {
 
       setIsGenerating(true);
       try {
-        if (opts.mode === "video") {
+        const currentModel = [...IMAGE_MODELS, ...VIDEO_MODELS].find(
+          (m) => m.id === opts.model,
+        );
+        const isFree = currentModel?.isFree;
+
+        if (opts.mode === "video" && !isFree) {
           const currentCredits = credits;
           const multiplier = opts.quality === "pro" ? 20 : 15;
           const cost = (opts.duration ?? 5) * multiplier;
           if (!currentCredits || currentCredits.remaining < cost) {
-            toast.error(`Not enough credits. You have ${currentCredits?.remaining ?? 0} remaining, need ${cost}.`);
+            toast.error(
+              `Not enough credits. You have ${currentCredits?.remaining ?? 0} remaining, need ${cost}.`,
+            );
             setIsGenerating(false);
             return;
           }
         }
 
-        const endpoint = opts.mode === "image" ? "/api/canvas/generate-image" : "/api/canvas/generate-video";
-        toast.info(opts.mode === "image" ? "Generating image..." : `Generating ${opts.duration ?? 5}s video...`);
+        const endpoint =
+          opts.mode === "image"
+            ? "/api/canvas/generate-image"
+            : "/api/canvas/generate-video";
+        toast.info(
+          opts.mode === "image"
+            ? "Generating image..."
+            : `Generating ${opts.duration ?? 5}s video...`,
+        );
 
         const response = await fetch(endpoint, {
           method: "POST",
@@ -164,10 +179,10 @@ export function useCanvas() {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Generation failed");
 
-        if (opts.mode === "video" && opts.duration) {
-          await deductCreditsMutation({ 
-            seconds: opts.duration, 
-            quality: opts.quality as "standard" | "pro" | undefined 
+        if (opts.mode === "video" && opts.duration && !isFree) {
+          await deductCreditsMutation({
+            seconds: opts.duration,
+            quality: opts.quality as "standard" | "pro" | undefined,
           });
         }
 
@@ -183,18 +198,30 @@ export function useCanvas() {
           audio: opts.audio,
         });
 
-        toast.success(`${opts.mode === "image" ? "Image" : "Video"} generated!`);
-        
+        toast.success(
+          `${opts.mode === "image" ? "Image" : "Video"} generated!`,
+        );
+
         // Take user to their creations and open the new one
         setTab("mine");
         if (newId) setPendingNewId(newId);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Generation failed");
+        toast.error(
+          error instanceof Error ? error.message : "Generation failed",
+        );
       } finally {
         setIsGenerating(false);
       }
     },
-    [isGenerating, credits, createCreation, deductCreditsMutation, canGenerateImages, canGenerateVideos]
+    [
+      isGenerating,
+      credits,
+      createCreation,
+      deductCreditsMutation,
+      canGenerateImages,
+      canGenerateVideos,
+      setTab,
+    ],
   );
 
   const handleToggleLike = useCallback(
@@ -239,7 +266,7 @@ export function useCanvas() {
     } else {
       loadMoreMy(PAGE_SIZE);
     }
-  }, [tab, loadMorePublished, loadMoreMy, setTab]);
+  }, [tab, loadMorePublished, loadMoreMy]);
 
   return {
     tab,

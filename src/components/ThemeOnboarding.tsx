@@ -60,7 +60,8 @@ export function ThemeOnboarding({ onComplete }: ThemeOnboardingProps) {
             Choose Your Theme
           </DialogTitle>
           <DialogDescription>
-            Select a color theme to personalize your experience. You can change this anytime from the theme menu.
+            Select a color theme to personalize your experience. You can change
+            this anytime from the theme menu.
           </DialogDescription>
         </DialogHeader>
 
@@ -92,6 +93,8 @@ export function ThemeOnboarding({ onComplete }: ThemeOnboardingProps) {
                       {theme === "emerald" && "Fresh green & teal vibes"}
                       {theme === "chelsea" && "Royal blue with gold accents"}
                       {theme === "amethyst" && "Bold violet and plum palette"}
+                      {theme === "normal" &&
+                        "Clean strictly black and white theme"}
                     </span>
                   </div>
                 </div>
