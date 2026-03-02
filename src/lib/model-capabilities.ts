@@ -46,7 +46,11 @@ export function deriveCapabilities(model: AiGatewayModel): ModelCapability[] {
       // We'll still use the dedicated tag for implicit caching.
     }
     const webSearch = (pricing as Record<string, unknown>).web_search;
-    if (webSearch !== undefined && webSearch !== null && String(webSearch) !== "0") {
+    if (
+      webSearch !== undefined &&
+      webSearch !== null &&
+      String(webSearch) !== "0"
+    ) {
       caps.add("web-search");
     }
     if ("image" in pricing || "image_output" in pricing) {
@@ -57,11 +61,25 @@ export function deriveCapabilities(model: AiGatewayModel): ModelCapability[] {
   return Array.from(caps);
 }
 
+// ── In-memory cache for gateway models (5-min TTL) ────────
+const CACHE_TTL_MS = 5 * 60 * 1000;
+let _cachedModels: AiGatewayModel[] | null = null;
+let _cacheExpiry = 0;
+
 export async function fetchAiGatewayModels(): Promise<AiGatewayModel[]> {
+  const now = Date.now();
+  if (_cachedModels && now < _cacheExpiry) {
+    return _cachedModels;
+  }
+
   const res = await fetch("https://ai-gateway.vercel.sh/v1/models");
   if (!res.ok) {
+    // If we have stale data, return it rather than throwing
+    if (_cachedModels) return _cachedModels;
     throw new Error(`Failed to fetch AI Gateway models: ${res.status}`);
   }
   const json = (await res.json()) as { data?: AiGatewayModel[] };
-  return json.data ?? [];
+  _cachedModels = json.data ?? [];
+  _cacheExpiry = now + CACHE_TTL_MS;
+  return _cachedModels;
 }

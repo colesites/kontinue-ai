@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
-import { X, Heart, Download, Clock, Ratio, Cpu, Share2 } from "lucide-react";
+import { X, Heart, Download, Clock, Ratio, Cpu, Share2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { CreationData } from "./CreationCard";
@@ -22,6 +23,7 @@ export function CreationLightbox({
   onToggleLike,
 }: CreationLightboxProps) {
   const model = getCanvasModelById(creation.modelId);
+  const [mediaLoaded, setMediaLoaded] = useState(false);
 
   const handleDownload = async () => {
     const response = await fetch(creation.mediaUrl);
@@ -55,7 +57,19 @@ export function CreationLightbox({
         </button>
 
         {/* Media */}
-        <div className="flex max-h-[60vh] flex-1 items-center justify-center overflow-hidden bg-black lg:max-h-none">
+        <div className="relative flex max-h-[60vh] flex-1 items-center justify-center overflow-hidden bg-black lg:max-h-none">
+          {/* Loading skeleton */}
+          {!mediaLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">
+                  Loading {creation.mediaType}...
+                </span>
+              </div>
+            </div>
+          )}
+
           {creation.mediaType === "image" ? (
             <Image
               src={creation.mediaUrl}
@@ -63,15 +77,23 @@ export function CreationLightbox({
               width={1200}
               height={1200}
               unoptimized
-              className="max-h-full w-auto object-contain"
+              className={`max-h-full w-auto object-contain transition-opacity duration-300 ${
+                mediaLoaded ? "opacity-100" : "opacity-0"
+              }`}
+              onLoad={() => setMediaLoaded(true)}
             />
           ) : (
             <video
               src={creation.mediaUrl}
-              controls
+              controls={mediaLoaded}
               autoPlay
               loop
-              className="max-h-full w-auto"
+              muted
+              playsInline
+              className={`max-h-full w-auto transition-opacity duration-300 ${
+                mediaLoaded ? "opacity-100" : "opacity-0"
+              }`}
+              onCanPlay={() => setMediaLoaded(true)}
             />
           )}
         </div>

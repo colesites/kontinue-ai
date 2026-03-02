@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import { Loader2 } from "lucide-react";
 import { ChatClient } from "@/features/chat/components/ChatClient";
+import Spinner from "@/components/Spinner";
 
 // Required for Cache Components - provide at least one param for validation
 export async function generateStaticParams() {
@@ -8,17 +8,9 @@ export async function generateStaticParams() {
   return [{ chatId: "placeholder" }];
 }
 
-function LoadingFallback() {
-  return (
-    <div className="absolute inset-0 flex items-center justify-center">
-      <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
-    </div>
-  );
-}
-
 export default function ChatPage() {
   return (
-    <Suspense fallback={<LoadingFallback />}>
+    <Suspense fallback={<Spinner />}>
       <ChatClient />
     </Suspense>
   );

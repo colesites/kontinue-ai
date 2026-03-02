@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, usePaginatedQuery } from "convex/react";
 import { useSearchParams } from "next/navigation";
 import { api } from "@convex/_generated/api";
 import { toast } from "sonner";
 import type { Id } from "@convex/_generated/dataModel";
 import { usePlanTier } from "@/lib/use-plan-tier";
 import type { CreationData } from "../components/CreationCard";
+
+const PAGE_SIZE = 18;
 
 export function useCanvas() {
   const planTier = usePlanTier();
@@ -24,9 +26,29 @@ export function useCanvas() {
   const [tab, setTab] = useState<"community" | "mine">("community");
   const [pendingNewId, setPendingNewId] = useState<Id<"canvasCreations"> | null>(null);
 
-  // Convex queries
-  const publishedCreations = useQuery(api.canvas.listPublished, { sortBy: "likes" });
-  const myCreations = useQuery(api.canvas.listMyCreations);
+  // Convex paginated queries
+  const {
+    results: publishedResults,
+    status: publishedStatus,
+    loadMore: loadMorePublished,
+  } = usePaginatedQuery(
+    api.canvas.listPublished,
+    { sortBy: "likes" },
+    { initialNumItems: PAGE_SIZE },
+  );
+
+  const {
+    results: myResults,
+    status: myStatus,
+    loadMore: loadMoreMy,
+  } = usePaginatedQuery(
+    api.canvas.listMyCreations,
+    {},
+    { initialNumItems: PAGE_SIZE },
+  );
+
+  const publishedCreations = publishedResults as CreationData[] | undefined;
+  const myCreations = myResults as CreationData[] | undefined;
 
   // Auto-expand new creation
   useMemo(() => {
@@ -38,6 +60,7 @@ export function useCanvas() {
       }
     }
   }, [pendingNewId, myCreations]);
+
   const credits = useQuery(api.canvas.getCredits);
   const myLikesRaw = useQuery(api.canvas.getMyLikes);
 
@@ -109,7 +132,8 @@ export function useCanvas() {
       try {
         if (opts.mode === "video") {
           const currentCredits = credits;
-          const cost = (opts.duration ?? 5) * 20;
+          const multiplier = opts.quality === "pro" ? 20 : 15;
+          const cost = (opts.duration ?? 5) * multiplier;
           if (!currentCredits || currentCredits.remaining < cost) {
             toast.error(`Not enough credits. You have ${currentCredits?.remaining ?? 0} remaining, need ${cost}.`);
             setIsGenerating(false);
@@ -139,7 +163,10 @@ export function useCanvas() {
         if (!response.ok) throw new Error(data.error || "Generation failed");
 
         if (opts.mode === "video" && opts.duration) {
-          await deductCreditsMutation({ seconds: opts.duration });
+          await deductCreditsMutation({ 
+            seconds: opts.duration, 
+            quality: opts.quality as "standard" | "pro" | undefined 
+          });
         }
 
         const newId = await createCreation({
@@ -199,8 +226,18 @@ export function useCanvas() {
   );
 
   const displayCreations = tab === "community"
-    ? (publishedCreations as CreationData[] | undefined)
-    : (myCreations as CreationData[] | undefined);
+    ? publishedCreations
+    : myCreations;
+
+  const paginationStatus = tab === "community" ? publishedStatus : myStatus;
+
+  const handleLoadMore = useCallback(() => {
+    if (tab === "community") {
+      loadMorePublished(PAGE_SIZE);
+    } else {
+      loadMoreMy(PAGE_SIZE);
+    }
+  }, [tab, loadMorePublished, loadMoreMy]);
 
   return {
     tab,
@@ -218,5 +255,7 @@ export function useCanvas() {
     isPro,
     canGenerateImages,
     canGenerateVideos,
+    paginationStatus,
+    handleLoadMore,
   };
 }

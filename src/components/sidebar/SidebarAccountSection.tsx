@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
-import { useMemo } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
 import { ChevronUp, Sparkles } from "lucide-react";
 import { IoSettingsSharp } from "react-icons/io5";
 import { LuMessageSquarePlus } from "react-icons/lu";
@@ -34,8 +32,6 @@ export function SidebarAccountSection({
   planTier,
   onNavigate,
 }: SidebarAccountSectionProps) {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const isPaid = planTier !== "free";
   const isTopTier = planTier === "pro";
   const feedbackHref = "/feedback";

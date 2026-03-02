@@ -1,7 +1,6 @@
+import { CanvasInputBar } from "@/features/canvas/components/CanvasInputBar";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { CanvasInputBar } from "../CanvasInputBar";
 import { expect, test, describe, vi } from "bun:test";
-import React from "react";
 
 // Mock the models
 vi.mock("@/lib/canvas-models", () => ({

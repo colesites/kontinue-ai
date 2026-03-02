@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { IMAGE_MODELS, VIDEO_MODELS } from "../../../../lib/canvas-models";
+import { IMAGE_MODELS, VIDEO_MODELS } from "../lib/canvas-models";
 
 // Mocking the AI SDK and Gateway
 vi.mock("ai", () => ({

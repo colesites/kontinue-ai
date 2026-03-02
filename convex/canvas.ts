@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
+import { paginationOptsValidator } from "convex/server";
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -23,7 +24,8 @@ async function authenticatedUser(ctx: QueryCtx | MutationCtx) {
 // ── Credits ───────────────────────────────────────────────
 
 const MONTHLY_CREDITS = 300;
-const VIDEO_COST_PER_SECOND = 20;
+const STANDARD_VIDEO_COST_PER_SECOND = 15;
+const PRO_VIDEO_COST_PER_SECOND = 20;
 
 export const getCredits = query({
   args: {},
@@ -48,12 +50,19 @@ export const getCredits = query({
 });
 
 export const deductCredits = mutation({
-  args: { seconds: v.number() },
-  handler: async (ctx, { seconds }) => {
+  args: {
+    seconds: v.number(),
+    quality: v.optional(v.union(v.literal("standard"), v.literal("pro"))),
+  },
+  handler: async (ctx, { seconds, quality = "standard" }) => {
     const { user } = await authenticatedUser(ctx);
     const monthKey = currentMonthKey();
 
-    const cost = seconds * VIDEO_COST_PER_SECOND;
+    const multiplier =
+      quality === "pro"
+        ? PRO_VIDEO_COST_PER_SECOND
+        : STANDARD_VIDEO_COST_PER_SECOND;
+    const cost = seconds * multiplier;
 
     const existing = await ctx.db
       .query("videoCredits")
@@ -132,34 +141,35 @@ export const publishCreation = mutation({
 
 export const listPublished = query({
   args: {
-    sortBy: v.optional(
-      v.union(v.literal("likes"), v.literal("recent")),
-    ),
+    paginationOpts: paginationOptsValidator,
+    sortBy: v.optional(v.union(v.literal("likes"), v.literal("recent"))),
   },
-  handler: async (ctx, { sortBy = "likes" }) => {
-    const creations = await ctx.db
+  handler: async (ctx, { paginationOpts, sortBy = "likes" }) => {
+    if (sortBy === "likes") {
+      return await ctx.db
+        .query("canvasCreations")
+        .withIndex("by_published", (q) => q.eq("isPublished", true))
+        .order("desc")
+        .paginate(paginationOpts);
+    }
+
+    return await ctx.db
       .query("canvasCreations")
       .withIndex("by_published_created", (q) => q.eq("isPublished", true))
       .order("desc")
-      .collect();
-
-    if (sortBy === "likes") {
-      creations.sort((a, b) => b.likeCount - a.likeCount);
-    }
-
-    return creations;
+      .paginate(paginationOpts);
   },
 });
 
 export const listMyCreations = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
     const { user } = await authenticatedUser(ctx);
     return await ctx.db
       .query("canvasCreations")
       .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
       .order("desc")
-      .collect();
+      .paginate(paginationOpts);
   },
 });
 

@@ -102,7 +102,15 @@ describe("getSharedConversation - Unit Tests", () => {
       },
     };
 
-    const messages: any[] = []; // No messages
+    const messages: {
+      _id: string;
+      chatId: string;
+      ownerId: string;
+      role: "user" | "assistant" | "system";
+      content: string;
+      createdAt: number;
+      order: number;
+    }[] = []; // No messages
 
     const result = {
       ...conversation,

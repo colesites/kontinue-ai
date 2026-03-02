@@ -67,7 +67,7 @@ export function CreationCard({
               src={creation.mediaUrl}
               alt={creation.prompt}
               width={800}
-              height={1200} // Large enough for varied heights
+              height={1200}
               unoptimized
               className="h-auto w-full object-cover"
             />
@@ -82,7 +82,12 @@ export function CreationCard({
               playsInline
               preload="metadata"
               className="h-auto w-full object-cover"
-              poster={`${creation.mediaUrl}#t=0.1`}
+              onLoadedData={(e) => {
+                // Pause at first frame so it renders as a thumbnail
+                const video = e.currentTarget;
+                video.currentTime = 0.1;
+                video.pause();
+              }}
             />
             {/* Play indicator */}
             {!isHovered && (

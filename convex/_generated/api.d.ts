@@ -18,6 +18,7 @@ import type * as lib_plan from "../lib/plan.js";
 import type * as messages from "../messages.js";
 import type * as titleGenerator from "../titleGenerator.js";
 import type * as users from "../users.js";
+import type * as whitelist from "../whitelist.js";
 
 import type {
   ApiFromModules,
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   messages: typeof messages;
   titleGenerator: typeof titleGenerator;
   users: typeof users;
+  whitelist: typeof whitelist;
 }>;
 
 /**

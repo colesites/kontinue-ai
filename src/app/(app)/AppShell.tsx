@@ -21,6 +21,7 @@ import { ShareButton } from "@/components/ShareButton";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 import { persistedPlanForTier } from "@/lib/plan-tier";
 import { usePlanTier } from "@/lib/use-plan-tier";
+import LoadingFallback from "@/components/LoadingFallback";
 
 export function AppShell({
   children,
@@ -50,14 +51,7 @@ export function AppShell({
   }, [getOrCreateUser, isAuthLoaded, isLoaded, planTier, user]);
 
   if (!isLoaded) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingFallback />;
   }
 
   return (

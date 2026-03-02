@@ -18,7 +18,12 @@ export const getOrCreateUser = mutation({
 
     if (existing) {
       // Update if needed
-      const patches: any = {};
+      const patches: Partial<
+        Pick<
+          typeof existing,
+          "name" | "imageUrl" | "subscriptionStatus" | "plan"
+        >
+      > = {};
       if (existing.name !== args.name) patches.name = args.name;
       if (existing.imageUrl !== args.imageUrl) patches.imageUrl = args.imageUrl;
       if (existing.subscriptionStatus !== args.subscriptionStatus)

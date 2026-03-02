@@ -192,4 +192,9 @@ export default defineSchema({
     usedCredits: v.number(),
     updatedAt: v.number(),
   }).index("by_owner_month", ["ownerId", "monthKey"]),
+
+  whitelistedEmails: defineTable({
+    email: v.string(),
+    addedAt: v.number(),
+  }).index("by_email", ["email"]),
 });

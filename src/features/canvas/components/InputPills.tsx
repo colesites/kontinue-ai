@@ -98,6 +98,8 @@ export function PillButton({
   );
 }
 
-export function Divider() {
-  return <div className="mx-1 h-6 w-px shrink-0 bg-border/50" />;
+export function Divider({ className }: { className?: string }) {
+  return (
+    <div className={cn("mx-1 h-6 w-px shrink-0 bg-border/50", className)} />
+  );
 }

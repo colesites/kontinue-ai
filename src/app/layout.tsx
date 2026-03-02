@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Loader2 } from "lucide-react";
 import { Toaster } from "sonner";
 import { Providers } from "./providers";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
+import LoadingFallback from "@/components/LoadingFallback";
 
 export const metadata: Metadata = {
   title: "Kontinue AI",
@@ -19,17 +19,6 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
 };
-
-function LoadingFallback() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="flex flex-col items-center gap-4">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
-    </div>
-  );
-}
 
 export default function RootLayout({
   children,
