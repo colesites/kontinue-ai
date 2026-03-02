@@ -9,6 +9,8 @@ import type { Id } from "@convex/_generated/dataModel";
 import { usePlanTier } from "@/lib/use-plan-tier";
 import type { CreationData } from "../components/CreationCard";
 
+import { useCanvasContext } from "../contexts/CanvasContext";
+
 const PAGE_SIZE = 18;
 
 export function useCanvas() {
@@ -23,7 +25,7 @@ export function useCanvas() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [publishingIds, setPublishingIds] = useState<Set<Id<"canvasCreations">>>(new Set());
   const [expandedCreation, setExpandedCreation] = useState<CreationData | null>(null);
-  const [tab, setTab] = useState<"community" | "mine">("community");
+  const { tab, setTab } = useCanvasContext();
   const [pendingNewId, setPendingNewId] = useState<Id<"canvasCreations"> | null>(null);
 
   // Convex paginated queries
@@ -237,7 +239,7 @@ export function useCanvas() {
     } else {
       loadMoreMy(PAGE_SIZE);
     }
-  }, [tab, loadMorePublished, loadMoreMy]);
+  }, [tab, loadMorePublished, loadMoreMy, setTab]);
 
   return {
     tab,

@@ -8,6 +8,8 @@ import { ThemeOnboarding } from "@/components/ThemeOnboarding";
 import { ThemeInit } from "@/components/ThemeInit";
 import { useClerkTheme } from "@/components/ClerkThemeProvider";
 
+import { CanvasProvider } from "@/features/canvas/contexts/CanvasContext";
+
 function ClerkWrapper({ children }: { children: React.ReactNode }) {
   const clerkTheme = useClerkTheme();
 
@@ -29,9 +31,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ClerkWrapper>
       <QueryProvider>
         <ConvexClientProvider>
-          <ThemeInit />
-          <ThemeOnboarding />
-          {children}
+          <CanvasProvider>
+            <ThemeInit />
+            <ThemeOnboarding />
+            {children}
+          </CanvasProvider>
         </ConvexClientProvider>
       </QueryProvider>
     </ClerkWrapper>

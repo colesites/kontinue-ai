@@ -1,11 +1,9 @@
 "use client";
 
 import { CanvasGallery } from "@/features/canvas/components/CanvasGallery";
-import { CanvasHeader } from "@/features/canvas/components/CanvasHeader";
 import { CanvasInputBar } from "@/features/canvas/components/CanvasInputBar";
 import { CreationLightbox } from "@/features/canvas/components/CreationLightbox";
 import { useCanvas } from "@/features/canvas/hooks/use-canvas";
-
 export function CanvasClient() {
   const {
     tab,
@@ -29,8 +27,6 @@ export function CanvasClient() {
 
   return (
     <div className="relative min-h-screen bg-background text-foreground pb-32">
-      <CanvasHeader tab={tab} setTab={setTab} />
-
       <main className="w-full">
         <CanvasGallery
           items={displayCreations}

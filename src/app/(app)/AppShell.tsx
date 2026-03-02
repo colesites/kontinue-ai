@@ -63,10 +63,20 @@ export function AppShell({
   );
 }
 
+import { useCanvasContext } from "@/features/canvas/contexts/CanvasContext";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 function ShellLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { isMobile, open, openMobile, setOpenMobile, setOpen } = useSidebar();
   const { chatId, chatTitle } = useChatContext();
+  const { tab, setTab } = useCanvasContext();
   const isHome = pathname === "/";
   const isCanvas = pathname === "/canvas";
   const isChatRoute = pathname.startsWith("/chat/");
@@ -105,11 +115,16 @@ function ShellLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <AppSidebar />
-      <SidebarInset className="bg-background h-dvh flex flex-col overflow-hidden">
+      <SidebarInset className="bg-background h-dvh flex flex-col overflow-hidden relative">
         {/* Floating top controls */}
-        {/* Floating top controls */}
-        {!isCanvas && (
-          <div className="pointer-events-none fixed inset-x-0 top-3 z-50 flex items-start justify-between px-3">
+        <div
+          className={cn(
+            "pointer-events-none fixed inset-x-0 top-3 z-50 flex items-start justify-between px-3 transition-all duration-300 ease-in-out",
+            open && !isMobile && "pl-[calc(var(--sidebar-width)+12px)]",
+          )}
+        >
+          <div className="flex items-start gap-3">
+            {/* Standard Icons Pill - Hides when sidebar is open because sidebar has them */}
             <div
               className={cn(
                 "pointer-events-auto flex items-center gap-3 rounded-2xl border border-border/50 bg-secondary/70 p-1 text-foreground shadow-sm backdrop-blur-sm transition-all duration-300",
@@ -135,16 +150,78 @@ function ShellLayout({ children }: { children: ReactNode }) {
                 <Plus className="size-4" />
               </Link>
             </div>
-            <div className="pointer-events-auto">
-              <div className="flex items-center gap-2">
-                {chatId && chatTitle && (
-                  <ShareButton chatId={chatId} chatTitle={chatTitle} />
-                )}
-                <ModeToggle />
-              </div>
+
+            {/* Canvas Navigation Switcher - STAYS visible when sidebar is open */}
+            {isCanvas && (
+              <>
+                <div
+                  className={cn(
+                    "pointer-events-auto hidden sm:flex items-center gap-1 rounded-2xl border border-border/50 bg-secondary/70 p-1 text-foreground shadow-sm backdrop-blur-sm transition-all duration-300",
+                    // We don't use hideTriggerGroup here so it doesn't disappear
+                  )}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setTab("community")}
+                    className={cn(
+                      "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all",
+                      tab === "community"
+                        ? "bg-background text-foreground shadow-sm border border-border/20"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    Community
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab("mine")}
+                    className={cn(
+                      "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all",
+                      tab === "mine"
+                        ? "bg-background text-foreground shadow-sm border border-border/20"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    My Creations
+                  </button>
+                </div>
+
+                <div
+                  className={cn(
+                    "pointer-events-auto flex sm:hidden items-center gap-1 rounded-2xl border border-border/50 bg-secondary/70 p-1 text-foreground shadow-sm backdrop-blur-sm transition-all duration-300",
+                  )}
+                >
+                  <Select
+                    value={tab}
+                    onValueChange={(value) =>
+                      setTab(value as "community" | "mine")
+                    }
+                  >
+                    <SelectTrigger
+                      size="sm"
+                      className="bg-transparent border-none shadow-none h-8 text-xs font-semibold px-3 hover:bg-secondary/40"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      <SelectItem value="community">Community</SelectItem>
+                      <SelectItem value="mine">My Creations</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="pointer-events-auto">
+            <div className="flex items-center gap-2">
+              {chatId && chatTitle && (
+                <ShareButton chatId={chatId} chatTitle={chatTitle} />
+              )}
+              <ModeToggle />
             </div>
           </div>
-        )}
+        </div>
 
         <div
           className={cn(
