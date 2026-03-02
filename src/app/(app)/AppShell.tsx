@@ -107,42 +107,44 @@ function ShellLayout({ children }: { children: ReactNode }) {
       <AppSidebar />
       <SidebarInset className="bg-background h-dvh flex flex-col overflow-hidden">
         {/* Floating top controls */}
-        <div className="pointer-events-none fixed inset-x-0 top-3 z-50 flex items-start justify-between px-3">
-          <div
-            className={cn(
-              "pointer-events-auto flex items-center gap-3 rounded-2xl border border-border/50 bg-secondary/70 p-1 text-foreground shadow-sm backdrop-blur-sm transition-all duration-300",
-              hideTriggerGroup && "pointer-events-none opacity-0 scale-95",
-              isCanvas && "bg-zinc-900 border-white/10 text-white shadow-xl",
-            )}
-            aria-hidden={hideTriggerGroup}
-          >
-            <SidebarTrigger className={toolbarButtonClasses} />
-            <button
-              type="button"
-              onClick={handleSearchClick}
-              className={toolbarButtonClasses}
-              aria-label="Search chats"
-            >
-              <Search className="size-4" />
-            </button>
-            <Link
-              href="/"
-              className={toolbarButtonClasses}
-              aria-label="Start new chat"
-              onClick={handleNewChatClick}
-            >
-              <Plus className="size-4" />
-            </Link>
-          </div>
-          <div className="pointer-events-auto">
-            <div className="flex items-center gap-2">
-              {chatId && chatTitle && (
-                <ShareButton chatId={chatId} chatTitle={chatTitle} />
+        {/* Floating top controls */}
+        {!isCanvas && (
+          <div className="pointer-events-none fixed inset-x-0 top-3 z-50 flex items-start justify-between px-3">
+            <div
+              className={cn(
+                "pointer-events-auto flex items-center gap-3 rounded-2xl border border-border/50 bg-secondary/70 p-1 text-foreground shadow-sm backdrop-blur-sm transition-all duration-300",
+                hideTriggerGroup && "pointer-events-none opacity-0 scale-95",
               )}
-              <ModeToggle />
+              aria-hidden={hideTriggerGroup}
+            >
+              <SidebarTrigger className={toolbarButtonClasses} />
+              <button
+                type="button"
+                onClick={handleSearchClick}
+                className={toolbarButtonClasses}
+                aria-label="Search chats"
+              >
+                <Search className="size-4" />
+              </button>
+              <Link
+                href="/"
+                className={toolbarButtonClasses}
+                aria-label="Start new chat"
+                onClick={handleNewChatClick}
+              >
+                <Plus className="size-4" />
+              </Link>
+            </div>
+            <div className="pointer-events-auto">
+              <div className="flex items-center gap-2">
+                {chatId && chatTitle && (
+                  <ShareButton chatId={chatId} chatTitle={chatTitle} />
+                )}
+                <ModeToggle />
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div
           className={cn(
