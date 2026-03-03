@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Image as ImageIcon,
   Video,
@@ -23,6 +23,8 @@ import {
   VIDEO_DURATIONS,
   DEFAULT_IMAGE_MODEL,
   DEFAULT_VIDEO_MODEL,
+  getCanvasModelById,
+  isRatioSupported,
 } from "@/lib/canvas-models";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Divider } from "./InputPills";
@@ -65,6 +67,24 @@ export function CanvasInputBar({
   const [quality, setQuality] = useState<"standard" | "pro">("standard");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const selectedModelData = getCanvasModelById(
+    mode === "image" ? imageModel : videoModel,
+  );
+  const currentProvider = selectedModelData?.provider || "";
+
+  // Auto-reset aspect ratio if not supported by current provider
+  useEffect(() => {
+    if (currentProvider && !isRatioSupported(currentProvider, aspectRatio)) {
+      // Find first supported ratio
+      const firstSupported = ASPECT_RATIOS.find((r) =>
+        isRatioSupported(currentProvider, r.value),
+      );
+      if (firstSupported) {
+        setAspectRatio(firstSupported.value);
+      }
+    }
+  }, [currentProvider, aspectRatio, setAspectRatio]);
 
   const costMultiplier = quality === "pro" ? 20 : 15;
 
@@ -234,6 +254,7 @@ export function CanvasInputBar({
                 creditsRemaining={credits.remaining}
                 costMultiplier={costMultiplier}
                 isFreeModel={isFreeModel}
+                currentProvider={currentProvider}
                 className="inline-flex sm:hidden"
                 align="center"
               />
@@ -255,6 +276,7 @@ export function CanvasInputBar({
                   icon: (
                     <RatioIcon ratio={r.value} className="text-foreground/80" />
                   ),
+                  disabled: !isRatioSupported(currentProvider, r.value),
                 }))}
               />
 
@@ -280,7 +302,8 @@ export function CanvasInputBar({
                   label={`${duration}s`}
                   className="hidden sm:inline-flex"
                   options={VIDEO_DURATIONS.filter(
-                    (d) => d * costMultiplier <= credits.remaining,
+                    (d) =>
+                      isFreeModel || d * costMultiplier <= credits.remaining,
                   ).map((d) => ({ value: String(d), label: `${d}s` }))}
                 />
               )}

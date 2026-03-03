@@ -8,7 +8,11 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ASPECT_RATIOS, VIDEO_DURATIONS } from "@/lib/canvas-models";
+import {
+  ASPECT_RATIOS,
+  VIDEO_DURATIONS,
+  isRatioSupported,
+} from "@/lib/canvas-models";
 import { cn } from "@/lib/utils";
 import { RatioIcon } from "./RatioIcon";
 
@@ -23,6 +27,7 @@ interface MobileSettingsProps {
   creditsRemaining: number;
   costMultiplier: number;
   isFreeModel?: boolean;
+  currentProvider?: string;
   className?: string;
   align?: "start" | "center" | "end";
 }
@@ -40,6 +45,7 @@ export function MobileSettings({
   creditsRemaining,
   costMultiplier,
   isFreeModel = false,
+  currentProvider,
   className,
   align = "start",
 }: MobileSettingsProps) {
@@ -148,27 +154,36 @@ export function MobileSettings({
                   Select Ratio
                 </span>
               </div>
-              {ASPECT_RATIOS.map((r) => (
-                <button
-                  key={r.value}
-                  onClick={() => {
-                    setAspectRatio(r.value);
-                    setView("main");
-                  }}
-                  className={cn(
-                    itemClasses,
-                    aspectRatio === r.value && "bg-secondary/5",
-                  )}
-                >
-                  <RatioIcon ratio={r.value} className="text-foreground/80" />
-                  <span className="flex-1 text-left font-bold text-foreground/80">
-                    {r.label}
-                  </span>
-                  {aspectRatio === r.value && (
-                    <Check className="h-4 w-4 text-foreground" />
-                  )}
-                </button>
-              ))}
+              {ASPECT_RATIOS.map((r) => {
+                const disabled = currentProvider
+                  ? !isRatioSupported(currentProvider, r.value)
+                  : false;
+                return (
+                  <button
+                    key={r.value}
+                    disabled={disabled}
+                    onClick={() => {
+                      if (!disabled) {
+                        setAspectRatio(r.value);
+                        setView("main");
+                      }
+                    }}
+                    className={cn(
+                      itemClasses,
+                      aspectRatio === r.value && "bg-secondary/5",
+                      disabled && "cursor-not-allowed opacity-20 grayscale",
+                    )}
+                  >
+                    <RatioIcon ratio={r.value} className="text-foreground/80" />
+                    <span className="flex-1 text-left font-bold text-foreground/80">
+                      {r.label}
+                    </span>
+                    {aspectRatio === r.value && !disabled && (
+                      <Check className="h-4 w-4 text-foreground" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           ) : view === "quality" ? (
             <div className="space-y-1">

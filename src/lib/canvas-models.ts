@@ -420,9 +420,28 @@ export function getCanvasModelById(id: string): CanvasModel | undefined {
 export const ASPECT_RATIOS = [
   { value: "1:1", label: "1:1" },
   { value: "3:2", label: "3:2" },
+  { value: "2:3", label: "2:3" },
   { value: "16:9", label: "16:9" },
   { value: "9:16", label: "9:16" },
   { value: "4:3", label: "4:3" },
+  { value: "3:4", label: "3:4" },
+  { value: "21:9", label: "21:9" },
 ] as const;
+
+export type AspectRatioValue = (typeof ASPECT_RATIOS)[number]["value"];
+
+export const PROVIDER_RATIOS: Record<string, AspectRatioValue[]> = {
+  Google: ["16:9", "9:16"],
+  KlingAI: ["16:9", "9:16", "1:1"],
+  Alibaba: ["16:9", "1:1"],
+  xAI: ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"],
+  ByteDance: ["16:9", "4:3", "1:1", "3:4", "9:16", "21:9"],
+};
+
+export function isRatioSupported(provider: string, ratio: string): boolean {
+  const supported = PROVIDER_RATIOS[provider];
+  if (!supported) return true; // Default to all if provider not listed
+  return supported.includes(ratio as AspectRatioValue);
+}
 
 export const VIDEO_DURATIONS = [5, 10, 15] as const;

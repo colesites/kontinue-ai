@@ -44,7 +44,15 @@ export const PRO_DEFAULT_MODEL_ID = "openai/gpt-5.2-pro";
 
 // Models that should remain usable on the free plan even if the AI Gateway
 // metadata suggests they have "premium" capabilities.
-export const ALWAYS_FREE_MODEL_IDS = new Set<string>([FREE_DEFAULT_MODEL_ID]);
+export const ALWAYS_FREE_MODEL_IDS = new Set<string>([
+  FREE_DEFAULT_MODEL_ID,
+  "alibaba/wan-v2.6-t2v",
+  "alibaba/wan-v2.6-i2v",
+  "alibaba/wan-v2.6-i2v-flash",
+  "alibaba/wan-v2.6-r2v",
+  "alibaba/wan-v2.6-r2v-flash",
+  "alibaba/wan-v2.5-t2v-preview",
+]);
 
 export function getModelById(id: string): ModelOption | undefined {
   return AVAILABLE_MODELS.find((m) => m.id === id);

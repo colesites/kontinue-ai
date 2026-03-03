@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     if (!userId) {
       return NextResponse.json(
         { error: "Unauthorized - please sign in" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -48,16 +48,6 @@ export async function POST(request: Request) {
       userId,
       typeof authResult.has === "function" ? authResult.has : undefined,
     );
-    if (planTier === "free") {
-      return NextResponse.json(
-        {
-          code: "FREE_PLAN_UPLOAD_DISABLED",
-          error:
-            "File uploads are available on Starter and Pro plans. Please upgrade to continue.",
-        },
-        { status: 403 },
-      );
-    }
 
     // Get filename from query params
     const { searchParams } = new URL(request.url);
@@ -66,23 +56,35 @@ export async function POST(request: Request) {
     if (!filename) {
       return NextResponse.json(
         { error: "Filename is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Get the file from the request body
     const blob = await request.blob();
+    const contentType = blob.type;
+
+    // Reject free plan only if it's NOT an image (allow images for Canvas/Image-to-Video)
+    if (planTier === "free" && !contentType.startsWith("image/")) {
+      return NextResponse.json(
+        {
+          code: "FREE_PLAN_UPLOAD_DISABLED",
+          error:
+            "File uploads (except images) are available on Starter and Pro plans. Please upgrade to continue.",
+        },
+        { status: 403 },
+      );
+    }
 
     // Validate file size
     if (blob.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         { error: "File size exceeds 5MB limit" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Validate content type
-    const contentType = blob.type;
     const isText = contentType.startsWith("text/");
     if (!isText && !ALLOWED_TYPES.includes(contentType)) {
       return NextResponse.json(
@@ -91,7 +93,7 @@ export async function POST(request: Request) {
             "Invalid file type. Allowed: images, PDF, MP4, WebM, MOV, MP3, M4A, AAC, WAV, OGG, FLAC, and text files",
           allowedTypes: ALLOWED_TYPES,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 

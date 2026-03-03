@@ -122,22 +122,22 @@ export function useCanvas() {
     }) => {
       if (isGenerating) return;
 
-      if (opts.mode === "image" && !canGenerateImages) {
+      const currentModel = [...IMAGE_MODELS, ...VIDEO_MODELS].find(
+        (m) => m.id === opts.model,
+      );
+      const isFree = currentModel?.isFree || false;
+
+      if (opts.mode === "image" && !canGenerateImages && !isFree) {
         toast.error("Upgrade to Starter or Pro to generate images.");
         return;
       }
-      if (opts.mode === "video" && !canGenerateVideos) {
+      if (opts.mode === "video" && !canGenerateVideos && !isFree) {
         toast.error("Upgrade to Pro to generate videos.");
         return;
       }
 
       setIsGenerating(true);
       try {
-        const currentModel = [...IMAGE_MODELS, ...VIDEO_MODELS].find(
-          (m) => m.id === opts.model,
-        );
-        const isFree = currentModel?.isFree;
-
         if (opts.mode === "video" && !isFree) {
           const currentCredits = credits;
           const multiplier = opts.quality === "pro" ? 20 : 15;

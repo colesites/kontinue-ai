@@ -14,6 +14,7 @@ interface PillSelectProps {
     label: string;
     icon?: React.ReactNode;
     isFree?: boolean;
+    disabled?: boolean;
   }[];
   icon?: React.ReactNode;
   tooltip: string;
@@ -65,12 +66,15 @@ export function PillSelect({
           {options.map((opt) => (
             <DropdownMenuItem
               key={opt.value}
-              onClick={() => onChange(opt.value)}
+              onClick={() => !opt.disabled && onChange(opt.value)}
+              disabled={opt.disabled}
               className={cn(
                 "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-xs font-bold uppercase tracking-tight transition-all",
-                opt.isFree
-                  ? "hover:bg-green-500/20 focus:bg-green-500/20"
-                  : "opacity-40 grayscale hover:opacity-100 hover:grayscale-0 hover:bg-secondary/60 focus:bg-secondary/60",
+                opt.disabled && "cursor-not-allowed opacity-20 grayscale",
+                !opt.disabled &&
+                  (opt.isFree
+                    ? "hover:bg-green-500/20 focus:bg-green-500/20"
+                    : "opacity-40 grayscale hover:opacity-100 hover:grayscale-0 hover:bg-secondary/60 focus:bg-secondary/60"),
                 value === opt.value &&
                   "bg-secondary/40 opacity-100 grayscale-0",
               )}
