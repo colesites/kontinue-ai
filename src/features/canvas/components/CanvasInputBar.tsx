@@ -4,7 +4,6 @@ import { useState, useRef } from "react";
 import {
   Image as ImageIcon,
   Video,
-  Ratio,
   Clock,
   Zap,
   Paperclip,
@@ -29,7 +28,8 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { Divider } from "./InputPills";
 import { PillSelect } from "./PillSelect";
 import { MobileSettings } from "./MobileSettings";
-import { cn } from "@/utils/cn";
+import { RatioIcon } from "./RatioIcon";
+import { cn } from "@/lib/utils";
 
 interface CanvasInputBarProps {
   onGenerate: (opts: {
@@ -68,8 +68,17 @@ export function CanvasInputBar({
 
   const costMultiplier = quality === "pro" ? 20 : 15;
 
-  // Auto-correct duration if current choice becomes unaffordable
-  if (mode === "video" && duration * costMultiplier > credits.remaining) {
+  const activeModel = mode === "image" ? imageModel : videoModel;
+  const models = mode === "image" ? IMAGE_MODELS : VIDEO_MODELS;
+  const activeModelData = models.find((m) => m.id === activeModel);
+  const isFreeModel = activeModelData?.isFree || false;
+
+  // Auto-correct duration if current choice becomes unaffordable (and not a free model)
+  if (
+    !isFreeModel &&
+    mode === "video" &&
+    duration * costMultiplier > credits.remaining
+  ) {
     const affordable = [...VIDEO_DURATIONS]
       .reverse()
       .find((d) => d * costMultiplier <= credits.remaining);
@@ -77,10 +86,10 @@ export function CanvasInputBar({
       setDuration(affordable);
     }
   }
-
-  const activeModel = mode === "image" ? imageModel : videoModel;
-  const models = mode === "image" ? IMAGE_MODELS : VIDEO_MODELS;
-  const canSubmit = prompt.trim() && !isGenerating && (mode === "image" ? canGenerateImages : canGenerateVideos);
+  const canSubmit =
+    prompt.trim() &&
+    !isGenerating &&
+    (isFreeModel || (mode === "image" ? canGenerateImages : canGenerateVideos));
 
   const handleSubmit = () => {
     if (!canSubmit) return;
@@ -224,6 +233,7 @@ export function CanvasInputBar({
                 setDuration={setDuration}
                 creditsRemaining={credits.remaining}
                 costMultiplier={costMultiplier}
+                isFreeModel={isFreeModel}
                 className="inline-flex sm:hidden"
                 align="center"
               />
@@ -231,12 +241,20 @@ export function CanvasInputBar({
               <PillSelect
                 value={aspectRatio}
                 onChange={setAspectRatio}
-                icon={<Ratio className="h-3.5 w-3.5" />}
+                icon={
+                  <RatioIcon
+                    ratio={aspectRatio}
+                    className="text-foreground/40 group-hover:text-foreground"
+                  />
+                }
                 tooltip="Aspect Ratio"
                 className="hidden sm:inline-flex"
                 options={ASPECT_RATIOS.map((r) => ({
                   value: r.value,
                   label: r.label,
+                  icon: (
+                    <RatioIcon ratio={r.value} className="text-foreground/80" />
+                  ),
                 }))}
               />
 
