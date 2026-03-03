@@ -1,16 +1,16 @@
 "use client";
 
-import React from "react"; // Added React import for useState
+import React from "react";
 import { VscSettings } from "react-icons/vsc";
-import { Ratio, Zap, Clock, ChevronLeft, ChevronRight } from "lucide-react"; // Added ChevronLeft and ChevronRight
+import { Zap, Clock, Check } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  // DropdownMenuSub, // Removed
-  // DropdownMenuSubTrigger, // Removed
-  // DropdownMenuSubContent, // Removed
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { ASPECT_RATIOS, VIDEO_DURATIONS } from "@/lib/canvas-models";
@@ -30,7 +30,27 @@ interface MobileSettingsProps {
   align?: "start" | "center" | "end";
 }
 
-type View = "main" | "aspectRatio" | "quality" | "duration"; // Added View type
+const RatioIcon = ({
+  ratio,
+  className,
+}: {
+  ratio: string;
+  className?: string;
+}) => (
+  <div className="flex h-5 w-5 items-center justify-center">
+    <div
+      className={cn(
+        "rounded-[2px] border border-current opacity-60",
+        ratio === "1:1" && "h-3 w-3",
+        ratio === "16:9" && "h-2 w-[14px]",
+        ratio === "9:16" && "h-[14px] w-2",
+        ratio === "3:2" && "h-[10px] w-[15px]",
+        ratio === "4:3" && "h-[11px] w-[14px]",
+        className,
+      )}
+    />
+  </div>
+);
 
 export function MobileSettings({
   mode,
@@ -45,18 +65,16 @@ export function MobileSettings({
   className,
   align = "start",
 }: MobileSettingsProps) {
-  const [view, setView] = React.useState<View>("main"); // Added view state
-
-  // Prevent closing when clicking sub-items by stopping propagation or managing open state
-  // But standard menu behavior is fine if we just handle the view state.
-  
-  const handleOpenChange = (open: boolean) => {
-    if (!open) setView("main");
-  };
+  const dropdownContentClasses =
+    "z-[100] min-w-[220px] rounded-[2rem] border border-white/10 bg-[#121212]/95 p-2 text-popover-foreground shadow-2xl backdrop-blur-3xl transition-all duration-200";
+  const itemClasses =
+    "flex w-full cursor-pointer items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition-all hover:bg-white/10 focus:bg-white/10 data-[state=open]:bg-white/10";
+  const subContentClasses =
+    "z-[110] min-w-[180px] rounded-[2rem] border border-white/10 bg-[#121212]/95 p-2 text-popover-foreground shadow-2xl backdrop-blur-3xl";
 
   return (
     <div className={cn("inline-flex shrink-0", className)}>
-      <DropdownMenu onOpenChange={handleOpenChange}> {/* Added onOpenChange */}
+      <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
@@ -70,129 +88,115 @@ export function MobileSettings({
           side="top"
           sideOffset={12}
           align={align}
-          className="z-[100] max-h-[70vh] min-w-[220px] overflow-y-auto border-border/40 bg-background/95 p-0 text-popover-foreground shadow-2xl backdrop-blur-3xl transition-all duration-200" // Modified className
+          className={dropdownContentClasses}
         >
-          {view === "main" ? ( // Conditional rendering for main view
-            <div className="p-2">
-              <DropdownMenuLabel className="px-2 py-1.5 text-[10px] font-black uppercase tracking-widest text-foreground/40">
-                Generation Settings
-              </DropdownMenuLabel>
-              
-              <button
-                onClick={(e) => { e.preventDefault(); setView("aspectRatio"); }}
-                className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-4 text-sm font-bold transition-all hover:bg-secondary/60 focus:bg-secondary/60"
-              >
-                <Ratio className="h-4 w-4 text-foreground/40" />
-                <span className="flex-1 text-left text-foreground/80 uppercase tracking-wide">Aspect Ratio</span>
-                <span className="text-foreground/40 font-black">{aspectRatio}</span>
-                <ChevronRight className="h-3.5 w-3.5 text-foreground/20" />
-              </button>
+          <div className="space-y-1">
+            <DropdownMenuLabel className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-widest text-white/30">
+              Generation Settings
+            </DropdownMenuLabel>
 
-              <button
-                onClick={(e) => { e.preventDefault(); setView("quality"); }}
-                className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-4 text-sm font-bold transition-all hover:bg-secondary/60 focus:bg-secondary/60"
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className={itemClasses}>
+                <RatioIcon ratio={aspectRatio} className="text-white/40" />
+                <span className="flex-1 text-left text-white/80 uppercase tracking-wide ml-1">
+                  Aspect ratio
+                </span>
+                <span className="text-white/40 font-black">{aspectRatio}</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent
+                className={subContentClasses}
+                sideOffset={8}
               >
-                <Zap className="h-4 w-4 text-foreground/40" />
-                <span className="flex-1 text-left text-foreground/80 uppercase tracking-wide">Quality</span>
-                <span className="text-foreground/40 font-black">
+                <DropdownMenuLabel className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/30">
+                  Aspect ratio
+                </DropdownMenuLabel>
+                {ASPECT_RATIOS.map((r) => (
+                  <DropdownMenuItem
+                    key={r.value}
+                    onClick={() => setAspectRatio(r.value)}
+                    className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-3 text-sm font-bold text-white/80 transition-all hover:bg-white/10 focus:bg-white/10"
+                  >
+                    <div className="flex items-center gap-3">
+                      <RatioIcon ratio={r.value} className="text-white/80" />
+                      {r.label}
+                    </div>
+                    {aspectRatio === r.value && (
+                      <Check className="h-4 w-4 text-white" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className={itemClasses}>
+                <Zap className="h-4 w-4 text-white/40" />
+                <span className="flex-1 text-left text-white/80 uppercase tracking-wide">
+                  Quality
+                </span>
+                <span className="text-white/40 font-black">
                   {quality === "standard" ? "STA" : "PRO"}
                 </span>
-                <ChevronRight className="h-3.5 w-3.5 text-foreground/20" />
-              </button>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent
+                className={subContentClasses}
+                sideOffset={8}
+              >
+                <DropdownMenuLabel className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/30">
+                  Quality
+                </DropdownMenuLabel>
+                {[
+                  { value: "standard", label: "Standard" },
+                  { value: "pro", label: "PRO" },
+                ].map((q) => (
+                  <DropdownMenuItem
+                    key={q.value}
+                    onClick={() => setQuality(q.value as "standard" | "pro")}
+                    className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-3 text-sm font-bold text-white/80 transition-all hover:bg-white/10 focus:bg-white/10"
+                  >
+                    {q.label}
+                    {quality === q.value && (
+                      <Check className="h-4 w-4 text-white" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
 
-              {mode === "video" && (
-                <button
-                  onClick={(e) => { e.preventDefault(); setView("duration"); }}
-                  className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-4 text-sm font-bold transition-all hover:bg-secondary/60 focus:bg-secondary/60"
+            {mode === "video" && (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className={itemClasses}>
+                  <Clock className="h-4 w-4 text-white/40" />
+                  <span className="flex-1 text-left text-white/80 uppercase tracking-wide">
+                    Duration
+                  </span>
+                  <span className="text-white/40 font-black">{duration}s</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent
+                  className={subContentClasses}
+                  sideOffset={8}
                 >
-                  <Clock className="h-4 w-4 text-foreground/40" />
-                  <span className="flex-1 text-left text-foreground/80 uppercase tracking-wide">Duration</span>
-                  <span className="text-foreground/40 font-black">{duration}s</span>
-                  <ChevronRight className="h-3.5 w-3.5 text-foreground/20" />
-                </button>
-              )}
-            </div>
-          ) : view === "aspectRatio" ? ( // Conditional rendering for aspectRatio view
-            <div className="p-2">
-              <button
-                onClick={() => setView("main")}
-                className="flex w-full items-center gap-2 px-2 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/80"
-              >
-                <ChevronLeft className="h-3 w-3" />
-                Back to Settings
-              </button>
-              <DropdownMenuLabel className="px-3 py-3 text-center text-xs font-black uppercase text-foreground/60">
-                Select Ratio
-              </DropdownMenuLabel>
-              {ASPECT_RATIOS.map((r) => (
-                <DropdownMenuItem
-                  key={r.value}
-                  onClick={() => { setAspectRatio(r.value); setView("main"); }} // Set view back to main
-                  className="flex cursor-pointer items-center justify-between px-3 py-3 text-sm font-bold"
-                >
-                  {r.label}
-                  {aspectRatio === r.value && (
-                    <div className="h-1.5 w-1.5 rounded-full bg-foreground" />
-                  )}
-                </DropdownMenuItem>
-              ))}
-            </div>
-          ) : view === "quality" ? ( // Conditional rendering for quality view
-            <div className="p-2">
-              <button
-                onClick={() => setView("main")}
-                className="flex w-full items-center gap-2 px-2 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/80"
-              >
-                <ChevronLeft className="h-3 w-3" />
-                Back to Settings
-              </button>
-              <DropdownMenuLabel className="px-3 py-3 text-center text-xs font-black uppercase text-foreground/60">
-                Select Quality
-              </DropdownMenuLabel>
-              {[
-                { value: "standard", label: "Standard" },
-                { value: "pro", label: "PRO" },
-              ].map((q) => (
-                <DropdownMenuItem
-                  key={q.value}
-                  onClick={() => { setQuality(q.value as "standard" | "pro"); setView("main"); }} // Set view back to main
-                  className="flex cursor-pointer items-center justify-between px-3 py-3 text-sm font-bold"
-                >
-                  {q.label}
-                  {quality === q.value && (
-                    <div className="h-1.5 w-1.5 rounded-full bg-foreground" />
-                  )}
-                </DropdownMenuItem>
-              ))}
-            </div>
-          ) : ( // Conditional rendering for duration view (default if not main, aspectRatio, or quality)
-            <div className="p-2">
-              <button
-                onClick={() => setView("main")}
-                className="flex w-full items-center gap-2 px-2 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/80"
-              >
-                <ChevronLeft className="h-3 w-3" />
-                Back to Settings
-              </button>
-              <DropdownMenuLabel className="px-3 py-3 text-center text-xs font-black uppercase text-foreground/60">
-                Select Duration
-              </DropdownMenuLabel>
-              {VIDEO_DURATIONS.filter(
-                (d) => d * costMultiplier <= creditsRemaining
-              ).map((d) => (
-                <DropdownMenuItem
-                  key={d}
-                  onClick={() => { setDuration(d); setView("main"); }} // Set view back to main
-                  className="flex cursor-pointer items-center justify-between px-3 py-3 text-sm font-bold"
-                >
-                  {d}s
-                  {duration === d && (
-                    <div className="h-1.5 w-1.5 rounded-full bg-foreground" />
-                  )}
-                </DropdownMenuItem>
-              ))}
-            </div>
-          )}
+                  <DropdownMenuLabel className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/30">
+                    Duration
+                  </DropdownMenuLabel>
+                  {VIDEO_DURATIONS.filter(
+                    (d) => d * costMultiplier <= creditsRemaining,
+                  ).map((d) => (
+                    <DropdownMenuItem
+                      key={d}
+                      onClick={() => setDuration(d)}
+                      className="flex cursor-pointer items-center justify-between rounded-xl px-3 py-3 text-sm font-bold text-white/80 transition-all hover:bg-white/10 focus:bg-white/10"
+                    >
+                      {d}s
+                      {duration === d && (
+                        <Check className="h-4 w-4 text-white" />
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            )}
+          </div>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
