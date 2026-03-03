@@ -4,21 +4,29 @@ import { useState } from "react";
 import { LuShare } from "react-icons/lu";
 import { Button } from "@/components/ui/button";
 import { ShareModal } from "@/components/ShareModal";
+import { cn } from "@/lib/utils";
 
 interface ShareButtonProps {
   chatId: string;
   chatTitle: string;
 }
 
-export function ShareButton({ chatId, chatTitle }: ShareButtonProps) {
+export function ShareButton({
+  chatId,
+  chatTitle,
+  className,
+}: ShareButtonProps & { className?: string }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
     <>
       <Button
-        variant="secondary"
+        variant="ghost"
         size="icon"
-        className="bg-secondary/80 hover:bg-secondary/90 backdrop-blur-sm"
+        className={cn(
+          "h-8 w-8 items-center justify-center rounded-lg text-foreground/85 transition-colors hover:text-foreground hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+          className,
+        )}
         onClick={() => setIsModalOpen(true)}
         aria-label="Share chat"
       >

@@ -214,7 +214,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
           </div>
 
           <div className="pointer-events-auto">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3 rounded-2xl border border-border/50 bg-secondary/70 p-1 text-foreground shadow-sm backdrop-blur-sm transition-all duration-300">
               {chatId && chatTitle && (
                 <ShareButton chatId={chatId} chatTitle={chatTitle} />
               )}
