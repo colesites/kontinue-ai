@@ -38,8 +38,8 @@ export function CanvasGallery({
 
   if (items.length === 0) {
     return (
-      <div className="p-8">
-        <div className="columns-1 md:columns-2 lg:columns-3 gap-1 p-1 space-y-1">
+      <div className="px-3 pt-4 sm:p-8">
+        <div className="columns-1 md:columns-2 lg:columns-3 gap-1 pb-4 space-y-1">
           {[
             "aspect-video",
             "aspect-square",
@@ -52,7 +52,7 @@ export function CanvasGallery({
               key={i}
               className={cn(
                 "w-full bg-muted/10 border-2 border-dashed border-border/40 rounded-2xl flex items-center justify-center break-inside-avoid",
-                aspect
+                aspect,
               )}
             >
               <Sparkles className="h-8 w-8 text-muted-foreground/30" />
@@ -64,17 +64,20 @@ export function CanvasGallery({
   }
 
   return (
-    <div className="w-full">
-      <div className="columns-1 md:columns-2 lg:columns-3 gap-1 p-1 space-y-1">
+    <div className="w-full h-full">
+      <div className="columns-1 md:columns-2 lg:columns-3 gap-1 px-3 pb-4 space-y-1">
         {items.map((creation) => (
-          <div key={creation._id} className="relative group overflow-hidden break-inside-avoid mb-1">
+          <div
+            key={creation._id}
+            className="relative group overflow-hidden break-inside-avoid mb-1"
+          >
             <CreationCard
               creation={creation}
               isLiked={myLikes.has(creation._id)}
               onToggleLike={onToggleLike}
               onExpand={onExpand}
             />
-            
+
             {/* Admin controls for 'mine' tab */}
             {tab === "mine" && (
               <div className="absolute top-4 left-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -89,7 +92,7 @@ export function CanvasGallery({
                     "flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-xl border backdrop-blur-md transition-all disabled:opacity-50 disabled:cursor-not-allowed",
                     creation.isPublished
                       ? "bg-green-500/20 text-green-400 border-green-500/30"
-                      : "bg-background/20 text-foreground border-foreground/20"
+                      : "bg-background/20 text-foreground border-foreground/20",
                   )}
                 >
                   {publishingIds?.has(creation._id) ? (
@@ -97,8 +100,10 @@ export function CanvasGallery({
                       <div className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
                       Processing...
                     </>
+                  ) : creation.isPublished ? (
+                    "Published"
                   ) : (
-                    creation.isPublished ? "Published" : "Publish"
+                    "Publish"
                   )}
                 </button>
               </div>

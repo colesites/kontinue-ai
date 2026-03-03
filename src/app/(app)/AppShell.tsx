@@ -233,11 +233,13 @@ function ShellLayout({ children }: { children: ReactNode }) {
             id="chat-scroll-container"
             className={cn(
               "flex-1 overflow-y-auto",
-              isHome || isCanvas
+              isHome
                 ? "pt-0"
-                : isChatRoute
-                  ? "pt-14 lg:pt-0"
-                  : "pt-9",
+                : isCanvas
+                  ? "pt-16 lg:pt-0"
+                  : isChatRoute
+                    ? "pt-14 lg:pt-0"
+                    : "pt-9",
             )}
           >
             {children}
