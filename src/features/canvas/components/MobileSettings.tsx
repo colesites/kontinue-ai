@@ -82,8 +82,8 @@ export function MobileSettings({
         >
           {view === "main" ? (
             <div className="space-y-1">
-              <div className="px-4 pt-2 pb-2">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">
+              <div className="px-4 pt-1 pb-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">
                   Generation Settings
                 </span>
               </div>
@@ -150,7 +150,7 @@ export function MobileSettings({
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/20">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">
                   Select Ratio
                 </span>
               </div>
@@ -194,7 +194,7 @@ export function MobileSettings({
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/20">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">
                   Quality
                 </span>
               </div>
@@ -232,7 +232,7 @@ export function MobileSettings({
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/20">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">
                   Duration
                 </span>
               </div>
