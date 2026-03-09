@@ -1,34 +1,40 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, mock } from "bun:test";
 import { IMAGE_MODELS, VIDEO_MODELS } from "../lib/canvas-models";
 
 // Mocking the AI SDK and Gateway
-vi.mock("ai", () => ({
-  experimental_generateImage: vi.fn(),
-  experimental_generateVideo: vi.fn(),
-  generateText: vi.fn(),
+mock.module("ai", () => ({
+  experimental_generateImage: () => {},
+  experimental_generateVideo: () => {},
+  generateText: () => {},
 }));
 
-vi.mock("@ai-sdk/gateway", () => ({
+mock.module("@ai-sdk/gateway", () => ({
   gateway: {
-    imageModel: vi.fn((id) => ({ id, type: "image" })),
-    videoModel: vi.fn((id) => ({ id, type: "video" })),
+    imageModel: (id: string) => ({ id, type: "image" }),
+    videoModel: (id: string) => ({ id, type: "video" }),
   },
 }));
 
 describe("Canvas Model Generation Routing", () => {
   it("should identify chat models that need tool calling", () => {
     const chatModelKeywords = ["gpt", "gemini", "grok"];
-    
-    const imageChatModels = IMAGE_MODELS.filter(m => 
-      chatModelKeywords.some(k => m.id.toLowerCase().includes(k))
-    );
-    
-    const videoChatModels = VIDEO_MODELS.filter(m => 
-      chatModelKeywords.some(k => m.id.toLowerCase().includes(k))
+
+    const imageChatModels = IMAGE_MODELS.filter((m) =>
+      chatModelKeywords.some((k) => m.id.toLowerCase().includes(k)),
     );
 
-    console.log("Image models needing tools:", imageChatModels.map(m => m.id));
-    console.log("Video models needing tools:", videoChatModels.map(m => m.id));
+    const videoChatModels = VIDEO_MODELS.filter((m) =>
+      chatModelKeywords.some((k) => m.id.toLowerCase().includes(k)),
+    );
+
+    console.log(
+      "Image models needing tools:",
+      imageChatModels.map((m) => m.id),
+    );
+    console.log(
+      "Video models needing tools:",
+      videoChatModels.map((m) => m.id),
+    );
 
     // In a real test, we would hit the API route and verify if generateText was called
     // instead of experimental_generateImage for these models.

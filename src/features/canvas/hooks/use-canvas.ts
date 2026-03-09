@@ -119,6 +119,7 @@ export function useCanvas() {
       duration?: number;
       quality?: "standard" | "pro";
       audio?: boolean;
+      resolution?: string;
     }) => {
       if (isGenerating) return;
 
@@ -168,6 +169,7 @@ export function useCanvas() {
             prompt: opts.prompt,
             model: opts.model,
             aspectRatio: opts.aspectRatio,
+            resolution: opts.resolution,
             ...(opts.mode === "video" && {
               duration: opts.duration,
               quality: opts.quality,
@@ -182,6 +184,8 @@ export function useCanvas() {
         if (opts.mode === "video" && opts.duration && !isFree) {
           await deductCreditsMutation({
             seconds: opts.duration,
+            modelId: opts.model,
+            resolution: opts.resolution,
             quality: opts.quality as "standard" | "pro" | undefined,
           });
         }
@@ -193,6 +197,7 @@ export function useCanvas() {
           prompt: opts.prompt,
           modelId: opts.model,
           aspectRatio: opts.aspectRatio,
+          resolution: opts.resolution,
           duration: opts.duration,
           quality: opts.quality,
           audio: opts.audio,

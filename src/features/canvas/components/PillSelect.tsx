@@ -22,6 +22,8 @@ interface PillSelectProps {
   header?: string;
   className?: string;
   align?: "start" | "center" | "end";
+  disabled?: boolean;
+  isPro?: boolean;
 }
 
 export function PillSelect({
@@ -34,16 +36,23 @@ export function PillSelect({
   header,
   className,
   align = "start",
+  disabled = false,
+  isPro = false,
 }: PillSelectProps) {
   const selectedOption = options.find((o) => o.value === value);
 
   return (
     <div className={cn("inline-flex shrink-0", className)}>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+        <DropdownMenuTrigger asChild disabled={disabled}>
           <button
             type="button"
-            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border/40 bg-secondary/20 px-3.5 text-xs font-bold uppercase tracking-tight text-foreground/70 shadow-none transition-all hover:bg-secondary/40 hover:text-foreground focus:outline-none"
+            disabled={disabled}
+            className={cn(
+              "inline-flex h-9 items-center gap-1.5 rounded-full border border-border/40 bg-secondary/20 px-3.5 text-xs font-bold uppercase tracking-tight text-foreground/70 shadow-none transition-all hover:bg-secondary/40 hover:text-foreground focus:outline-none",
+              disabled &&
+                "pointer-events-none cursor-not-allowed opacity-20 grayscale",
+            )}
             title={tooltip}
           >
             {icon || selectedOption?.icon}
@@ -72,20 +81,17 @@ export function PillSelect({
                 "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-xs font-bold uppercase tracking-tight transition-all",
                 opt.disabled && "cursor-not-allowed opacity-20 grayscale",
                 !opt.disabled &&
-                  (opt.isFree
-                    ? "hover:bg-green-500/20 focus:bg-green-500/20"
-                    : "opacity-40 grayscale hover:opacity-100 hover:grayscale-0 hover:bg-secondary/60 focus:bg-secondary/60"),
+                  (isPro
+                    ? "opacity-100 grayscale-0 font-bold hover:bg-secondary/60 focus:bg-secondary/60"
+                    : opt.isFree
+                      ? "opacity-100 grayscale-0 font-black bg-secondary/10"
+                      : "opacity-40 grayscale hover:opacity-100 hover:grayscale-0 hover:bg-secondary/60 focus:bg-secondary/60"),
                 value === opt.value &&
                   "bg-secondary/40 opacity-100 grayscale-0",
               )}
             >
               {opt.icon}
               <span className="flex-1">{opt.label}</span>
-              {opt.isFree && (
-                <span className="rounded-full bg-green-500 px-1.5 py-0.5 text-[8px] font-black leading-none text-white">
-                  FREE
-                </span>
-              )}
               {value === opt.value && (
                 <div className="h-1.5 w-1.5 rounded-full bg-foreground" />
               )}

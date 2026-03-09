@@ -23,9 +23,8 @@ async function authenticatedUser(ctx: QueryCtx | MutationCtx) {
 
 // ── Credits ───────────────────────────────────────────────
 
+// Credits are managed per month (300 total)
 const MONTHLY_CREDITS = 300;
-const STANDARD_VIDEO_COST_PER_SECOND = 15;
-const PRO_VIDEO_COST_PER_SECOND = 20;
 
 export const getCredits = query({
   args: {},
@@ -52,17 +51,43 @@ export const getCredits = query({
 export const deductCredits = mutation({
   args: {
     seconds: v.number(),
+    modelId: v.string(),
+    resolution: v.optional(v.string()),
     quality: v.optional(v.union(v.literal("standard"), v.literal("pro"))),
   },
-  handler: async (ctx, { seconds, quality = "standard" }) => {
+  handler: async (
+    ctx,
+    { seconds, modelId, resolution, quality = "standard" },
+  ) => {
+    const isFree =
+      modelId.includes("wan") ||
+      modelId.includes("flash") ||
+      modelId.includes("lite");
+
+    if (isFree) {
+      return { remaining: undefined };
+    }
+
     const { user } = await authenticatedUser(ctx);
     const monthKey = currentMonthKey();
 
-    const multiplier =
-      quality === "pro"
-        ? PRO_VIDEO_COST_PER_SECOND
-        : STANDARD_VIDEO_COST_PER_SECOND;
+    // Calculate cost based on model features
+    let multiplier = 15; // Default
+
+    if (modelId.includes("kling")) {
+      multiplier = quality === "pro" ? 20 : 15;
+    } else if (resolution) {
+      if (resolution.includes("1080") || resolution === "1080p") {
+        multiplier = 20;
+      } else if (resolution.includes("720") || resolution === "720p") {
+        multiplier = 15;
+      } else if (resolution.includes("480") || resolution === "480p") {
+        multiplier = 10;
+      }
+    }
+
     const cost = seconds * multiplier;
+    if (cost === 0) return { remaining: undefined };
 
     const existing = await ctx.db
       .query("videoCredits")
@@ -111,6 +136,7 @@ export const createCreation = mutation({
     quality: v.optional(v.string()),
     audio: v.optional(v.boolean()),
     referenceImageUrl: v.optional(v.string()),
+    resolution: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { user } = await authenticatedUser(ctx);

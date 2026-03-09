@@ -11,6 +11,7 @@ export interface CanvasModel {
   capability: "image" | "video";
   description: string;
   isFree?: boolean;
+  resolutions?: { value: string; label: string }[];
 }
 
 // ── Image Generation Models ───────────────────────────────
@@ -239,6 +240,10 @@ export const VIDEO_MODELS: CanvasModel[] = [
     provider: "xAI",
     capability: "video",
     description: "Text-to-video generation from xAI.",
+    resolutions: [
+      { value: "854x480", label: "480P" },
+      { value: "1280x720", label: "720P" },
+    ],
   },
 
   // KlingAI
@@ -300,6 +305,10 @@ export const VIDEO_MODELS: CanvasModel[] = [
     capability: "video",
     description: "Alibaba's advanced text-to-video model.",
     isFree: true,
+    resolutions: [
+      { value: "1280x720", label: "720P" },
+      { value: "1920x1080", label: "1080P" },
+    ],
   },
   {
     id: "alibaba/wan-v2.6-i2v",
@@ -308,6 +317,10 @@ export const VIDEO_MODELS: CanvasModel[] = [
     capability: "video",
     description: "Alibaba's advanced image-to-video model.",
     isFree: true,
+    resolutions: [
+      { value: "1280x720", label: "720P" },
+      { value: "1920x1080", label: "1080P" },
+    ],
   },
   {
     id: "alibaba/wan-v2.6-i2v-flash",
@@ -316,6 +329,10 @@ export const VIDEO_MODELS: CanvasModel[] = [
     capability: "video",
     description: "Fast image-to-video generation.",
     isFree: true,
+    resolutions: [
+      { value: "1280x720", label: "720P" },
+      { value: "1920x1080", label: "1080P" },
+    ],
   },
   {
     id: "alibaba/wan-v2.6-r2v",
@@ -324,6 +341,10 @@ export const VIDEO_MODELS: CanvasModel[] = [
     capability: "video",
     description: "Real-to-video generation from Alibaba.",
     isFree: true,
+    resolutions: [
+      { value: "1280x720", label: "720P" },
+      { value: "1920x1080", label: "1080P" },
+    ],
   },
   {
     id: "alibaba/wan-v2.6-r2v-flash",
@@ -332,6 +353,10 @@ export const VIDEO_MODELS: CanvasModel[] = [
     capability: "video",
     description: "Fast real-to-video generation.",
     isFree: true,
+    resolutions: [
+      { value: "1280x720", label: "720P" },
+      { value: "1920x1080", label: "1080P" },
+    ],
   },
   {
     id: "alibaba/wan-v2.5-t2v-preview",
@@ -340,6 +365,10 @@ export const VIDEO_MODELS: CanvasModel[] = [
     capability: "video",
     description: "Preview text-to-video model from Alibaba.",
     isFree: true,
+    resolutions: [
+      { value: "848x480", label: "480P" },
+      { value: "1280x720", label: "720P" },
+    ],
   },
 
   // ByteDance
@@ -349,6 +378,11 @@ export const VIDEO_MODELS: CanvasModel[] = [
     provider: "ByteDance",
     capability: "video",
     description: "High-quality video from ByteDance.",
+    resolutions: [
+      { value: "854x480", label: "480P" },
+      { value: "1280x720", label: "720P" },
+      { value: "1920x1080", label: "1080P" },
+    ],
   },
   {
     id: "bytedance/seedance-v1.0-pro",
@@ -356,6 +390,11 @@ export const VIDEO_MODELS: CanvasModel[] = [
     provider: "ByteDance",
     capability: "video",
     description: "Professional video generation from ByteDance.",
+    resolutions: [
+      { value: "854x480", label: "480P" },
+      { value: "1280x720", label: "720P" },
+      { value: "1920x1080", label: "1080P" },
+    ],
   },
   {
     id: "bytedance/seedance-v1.0-pro-fast",
@@ -363,6 +402,11 @@ export const VIDEO_MODELS: CanvasModel[] = [
     provider: "ByteDance",
     capability: "video",
     description: "Fast professional video generation.",
+    resolutions: [
+      { value: "854x480", label: "480P" },
+      { value: "1280x720", label: "720P" },
+      { value: "1920x1080", label: "1080P" },
+    ],
   },
   {
     id: "bytedance/seedance-v1.0-lite-t2v",
@@ -370,6 +414,11 @@ export const VIDEO_MODELS: CanvasModel[] = [
     provider: "ByteDance",
     capability: "video",
     description: "Lightweight text-to-video generation.",
+    resolutions: [
+      { value: "854x480", label: "480P" },
+      { value: "1280x720", label: "720P" },
+      { value: "1920x1080", label: "1080P" },
+    ],
   },
   {
     id: "bytedance/seedance-v1.0-lite-i2v",
@@ -377,6 +426,11 @@ export const VIDEO_MODELS: CanvasModel[] = [
     provider: "ByteDance",
     capability: "video",
     description: "Lightweight image-to-video generation.",
+    resolutions: [
+      { value: "854x480", label: "480P" },
+      { value: "1280x720", label: "720P" },
+      { value: "1920x1080", label: "1080P" },
+    ],
   },
 
   // Google
@@ -386,6 +440,10 @@ export const VIDEO_MODELS: CanvasModel[] = [
     provider: "Google",
     capability: "video",
     description: "Google's latest 3.1 generation video model.",
+    resolutions: [
+      { value: "1280x720", label: "720P" },
+      { value: "1920x1080", label: "1080P" },
+    ],
   },
   {
     id: "google/veo-3.1-fast-generate-001",
@@ -393,6 +451,10 @@ export const VIDEO_MODELS: CanvasModel[] = [
     provider: "Google",
     capability: "video",
     description: "Fast 3.1 generation from Google.",
+    resolutions: [
+      { value: "1280x720", label: "720P" },
+      { value: "1920x1080", label: "1080P" },
+    ],
   },
   {
     id: "google/veo-3.0-generate-001",
@@ -400,6 +462,10 @@ export const VIDEO_MODELS: CanvasModel[] = [
     provider: "Google",
     capability: "video",
     description: "Google's 3.0 generation video model.",
+    resolutions: [
+      { value: "1280x720", label: "720P" },
+      { value: "1920x1080", label: "1080P" },
+    ],
   },
   {
     id: "google/veo-3.0-fast-generate-001",
@@ -407,11 +473,15 @@ export const VIDEO_MODELS: CanvasModel[] = [
     provider: "Google",
     capability: "video",
     description: "Fast 3.0 generation from Google.",
+    resolutions: [
+      { value: "1280x720", label: "720P" },
+      { value: "1920x1080", label: "1080P" },
+    ],
   },
 ];
 
-export const DEFAULT_IMAGE_MODEL = IMAGE_MODELS[0].id;
-export const DEFAULT_VIDEO_MODEL = VIDEO_MODELS[0].id;
+export const DEFAULT_IMAGE_MODEL = "xai/grok-imagine-image";
+export const DEFAULT_VIDEO_MODEL = "alibaba/wan-v2.6-t2v";
 
 export function getCanvasModelById(id: string): CanvasModel | undefined {
   return [...IMAGE_MODELS, ...VIDEO_MODELS].find((m) => m.id === id);
@@ -433,7 +503,6 @@ export type AspectRatioValue = (typeof ASPECT_RATIOS)[number]["value"];
 export const PROVIDER_RATIOS: Record<string, AspectRatioValue[]> = {
   Google: ["16:9", "9:16"],
   KlingAI: ["16:9", "9:16", "1:1"],
-  Alibaba: ["16:9", "1:1"],
   xAI: ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"],
   ByteDance: ["16:9", "4:3", "1:1", "3:4", "9:16", "21:9"],
 };
@@ -444,4 +513,46 @@ export function isRatioSupported(provider: string, ratio: string): boolean {
   return supported.includes(ratio as AspectRatioValue);
 }
 
-export const VIDEO_DURATIONS = [5, 10, 15] as const;
+export const VIDEO_DURATIONS = [2, 3, 4, 5, 6, 8, 10, 12, 15] as const;
+
+export function isDurationSupported(
+  modelId: string,
+  duration: number,
+): boolean {
+  // Alibaba Wan
+  if (modelId.includes("wan-v2.5")) {
+    return [5, 10].includes(duration);
+  }
+  if (modelId.includes("wan-v2.6")) {
+    return duration >= 2 && duration <= 15;
+  }
+
+  // Google Veo
+  if (modelId.includes("google/veo")) {
+    return [4, 6, 8].includes(duration);
+  }
+
+  // KlingAI
+  if (modelId.includes("klingai/kling-v3.0")) {
+    return duration >= 3 && duration <= 15;
+  }
+  if (modelId.includes("klingai/kling-v2")) {
+    return [5, 10].includes(duration);
+  }
+
+  // xAI Grok
+  if (modelId.includes("xai/grok")) {
+    return [5, 10, 15].includes(duration);
+  }
+
+  // ByteDance Seedance
+  if (modelId.includes("seedance-v1.5")) {
+    return duration >= 4 && duration <= 12;
+  }
+  if (modelId.includes("seedance-v1.0")) {
+    return duration >= 2 && duration <= 12;
+  }
+
+  // Default for other models
+  return [5, 10, 15].includes(duration);
+}

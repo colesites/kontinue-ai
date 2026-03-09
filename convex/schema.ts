@@ -169,6 +169,7 @@ export default defineSchema({
     quality: v.optional(v.string()), // "standard" | "pro", video only
     audio: v.optional(v.boolean()), // video only
     referenceImageUrl: v.optional(v.string()),
+    resolution: v.optional(v.string()),
     isPublished: v.boolean(),
     likeCount: v.number(),
     createdAt: v.number(),

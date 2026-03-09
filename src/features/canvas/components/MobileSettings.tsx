@@ -2,7 +2,14 @@
 
 import React from "react";
 import { VscSettings } from "react-icons/vsc";
-import { Zap, Clock, Check, ChevronRight, ChevronLeft } from "lucide-react";
+import {
+  Zap,
+  Clock,
+  Check,
+  ChevronRight,
+  ChevronLeft,
+  Maximize,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +19,10 @@ import {
   ASPECT_RATIOS,
   VIDEO_DURATIONS,
   isRatioSupported,
+  isDurationSupported,
+  IMAGE_MODELS,
+  VIDEO_MODELS,
+  CanvasModel,
 } from "@/lib/canvas-models";
 import { cn } from "@/lib/utils";
 import { RatioIcon } from "./RatioIcon";
@@ -24,6 +35,8 @@ interface MobileSettingsProps {
   setQuality: (v: "standard" | "pro") => void;
   duration: number;
   setDuration: (v: number) => void;
+  resolution: string;
+  setResolution: (v: string) => void;
   creditsRemaining: number;
   costMultiplier: number;
   isFreeModel?: boolean;
@@ -32,7 +45,7 @@ interface MobileSettingsProps {
   align?: "start" | "center" | "end";
 }
 
-type View = "main" | "aspectRatio" | "quality" | "duration";
+type View = "main" | "aspectRatio" | "quality" | "duration" | "resolution";
 
 export function MobileSettings({
   mode,
@@ -42,14 +55,24 @@ export function MobileSettings({
   setQuality,
   duration,
   setDuration,
+  resolution,
+  setResolution,
   creditsRemaining,
   costMultiplier,
   isFreeModel = false,
   currentProvider,
   className,
   align = "start",
-}: MobileSettingsProps) {
+  activeModel,
+}: MobileSettingsProps & { activeModel: string }) {
   const [view, setView] = React.useState<View>("main");
+
+  // Get model data to check for resolutions
+  const models = mode === "image" ? IMAGE_MODELS : VIDEO_MODELS;
+  const selectedModelData = models.find(
+    (m: CanvasModel) => m.id === activeModel,
+  );
+  const hasResolutions = (selectedModelData?.resolutions?.length ?? 0) > 0;
 
   const dropdownContentClasses =
     "z-[100] min-w-[240px] rounded-[2.5rem] border border-border/20 bg-background/95 p-3 text-popover-foreground shadow-2xl backdrop-blur-3xl transition-all duration-300 animate-in fade-in zoom-in-95 slide-in-from-bottom-4";
@@ -88,39 +111,66 @@ export function MobileSettings({
                 </span>
               </div>
 
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  setView("aspectRatio");
-                }}
-                className={itemClasses}
-              >
-                <RatioIcon ratio={aspectRatio} className="text-foreground/40" />
-                <span className="flex-1 text-left text-foreground/80 uppercase tracking-wider ml-1">
-                  Aspect ratio
-                </span>
-                <span className="text-foreground/40 font-black">
-                  {aspectRatio}
-                </span>
-                <ChevronRight className="h-4 w-4 text-foreground/10" />
-              </button>
+              {!hasResolutions ? (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setView("aspectRatio");
+                  }}
+                  className={itemClasses}
+                >
+                  <RatioIcon
+                    ratio={aspectRatio}
+                    className="text-foreground/40"
+                  />
+                  <span className="flex-1 text-left text-foreground/80 uppercase tracking-wider ml-1">
+                    Aspect ratio
+                  </span>
+                  <span className="text-foreground/40 font-black">
+                    {aspectRatio}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-foreground/10" />
+                </button>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setView("resolution");
+                  }}
+                  className={itemClasses}
+                >
+                  <Maximize className="h-4 w-4 text-foreground/40" />
+                  <span className="flex-1 text-left text-foreground/80 uppercase tracking-wide">
+                    Resolution
+                  </span>
+                  <span className="text-foreground/40 font-black">
+                    {selectedModelData?.resolutions?.find(
+                      (r: { value: string; label: string }) =>
+                        r.value === resolution,
+                    )?.label || resolution}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-foreground/10" />
+                </button>
+              )}
 
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  setView("quality");
-                }}
-                className={itemClasses}
-              >
-                <Zap className="h-4 w-4 text-foreground/40" />
-                <span className="flex-1 text-left text-foreground/80 uppercase tracking-wide">
-                  Quality
-                </span>
-                <span className="text-foreground/40 font-black">
-                  {quality === "standard" ? "STA" : "PRO"}
-                </span>
-                <ChevronRight className="h-4 w-4 text-foreground/10" />
-              </button>
+              {activeModel.startsWith("klingai/") && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setView("quality");
+                  }}
+                  className={itemClasses}
+                >
+                  <Zap className="h-4 w-4 text-foreground/40" />
+                  <span className="flex-1 text-left text-foreground/80 uppercase tracking-wide">
+                    Quality
+                  </span>
+                  <span className="text-foreground/40 font-black">
+                    {quality === "standard" ? "STA" : "PRO"}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-foreground/10" />
+                </button>
+              )}
 
               {mode === "video" && (
                 <button
@@ -185,6 +235,43 @@ export function MobileSettings({
                 );
               })}
             </div>
+          ) : view === "resolution" ? (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 px-2 pt-1 pb-2">
+                <button
+                  onClick={() => setView("main")}
+                  className="p-2 text-foreground/40 hover:text-foreground transition-colors"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">
+                  Select Res
+                </span>
+              </div>
+              {selectedModelData?.resolutions?.map(
+                (r: { value: string; label: string }) => (
+                  <button
+                    key={r.value}
+                    onClick={() => {
+                      setResolution(r.value);
+                      setView("main");
+                    }}
+                    className={cn(
+                      itemClasses,
+                      resolution === r.value && "bg-secondary/5",
+                    )}
+                  >
+                    <Maximize className="h-4 w-4 text-foreground/40" />
+                    <span className="flex-1 text-left font-bold text-foreground/80">
+                      {r.label}
+                    </span>
+                    {resolution === r.value && (
+                      <Check className="h-4 w-4 text-foreground" />
+                    )}
+                  </button>
+                ),
+              )}
+            </div>
           ) : view === "quality" ? (
             <div className="space-y-1">
               <div className="flex items-center gap-2 px-2 pt-1 pb-2">
@@ -237,7 +324,9 @@ export function MobileSettings({
                 </span>
               </div>
               {VIDEO_DURATIONS.filter(
-                (d) => isFreeModel || d * costMultiplier <= creditsRemaining,
+                (d) =>
+                  isDurationSupported(activeModel, d) &&
+                  (isFreeModel || d * costMultiplier <= creditsRemaining),
               ).map((d) => (
                 <button
                   key={d}

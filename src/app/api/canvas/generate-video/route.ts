@@ -4,9 +4,19 @@ import { gateway } from "@ai-sdk/gateway";
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { VIDEO_MODELS } from "@/lib/canvas-models";
-import { fetchAiGatewayModels } from "@/lib/model-capabilities";
 
-export const maxDuration = 300; // Video gen can take minutes
+export const maxDuration = 300;
+
+/**
+ * Type guard for provider errors from AI SDK
+ */
+function isProviderError(
+  error: unknown,
+): error is { providerResponse: unknown } {
+  return (
+    typeof error === "object" && error !== null && "providerResponse" in error
+  );
+}
 
 export async function POST(req: Request) {
   try {
@@ -18,10 +28,11 @@ export async function POST(req: Request) {
     const body = (await req.json()) as {
       prompt?: string;
       model?: string;
-      aspectRatio?: string;
-      duration?: number;
       quality?: "standard" | "pro";
       audio?: boolean;
+      resolution?: string;
+      aspectRatio?: string;
+      duration?: number;
     };
 
     if (!body.prompt || body.prompt.trim().length < 3) {
@@ -41,12 +52,6 @@ export async function POST(req: Request) {
     }
 
     const duration = body.duration ?? 5;
-    if (duration < 5 || duration > 15) {
-      return NextResponse.json(
-        { error: "Duration must be between 5 and 15 seconds" },
-        { status: 400 },
-      );
-    }
 
     // Ensure AI Gateway key is set
     const apiKey =
@@ -59,63 +64,125 @@ export async function POST(req: Request) {
         { status: 500 },
       );
     }
-    if (!process.env.AI_GATEWAY_API_KEY) {
-      process.env.AI_GATEWAY_API_KEY = apiKey;
-    }
+    // Set for subsequent library calls
+    process.env.AI_GATEWAY_API_KEY = apiKey;
 
-    // Fetch gateway metadata to determine if this is a language or video model
-    const gatewayModels = await fetchAiGatewayModels().catch((err) => {
-      console.error("[canvas/generate-video] Gateway models fetch failed:", err);
-      return [];
-    });
-    const modelInfo = gatewayModels.find(m => m.id === modelId);
+    // Standardized resolution/ratio types
+    const resolution = (body.resolution || "1280x720") as `${number}x${number}`;
+    const aspectRatio = (body.aspectRatio || "16:9") as `${number}:${number}`;
 
-    // Only route to native generateVideo if it's NOT a language model
-    if (modelInfo?.type === "language") {
-      throw new Error(`Model ${modelId} is a language model and requires a tool-based video generation path (not yet implemented). Please use a native video model.`);
-    }
+    // ── Provider-Specific Params ─────────────────────────────
 
-    // Build provider options depending on model provider
-    const providerOptions: Record<string, Record<string, string | number | boolean>> = {};
+    let result;
+    const model = gateway.video(modelId);
 
-    if (modelId.startsWith("klingai/")) {
-      providerOptions.klingai = {
-        mode: body.quality === "pro" ? "pro" : "std",
-        sound: body.audio ? "on" : "off",
-      };
-    } else if (modelId.startsWith("google/")) {
-      providerOptions.vertex = {
-        generateAudio: body.audio ?? false,
-      };
+    if (modelId.startsWith("google/")) {
+      // Google Veo: 4/6/8s. Prefers resolution over aspectRatio.
+      const veoDuration = [4, 6, 8].includes(duration) ? duration : 4;
+      result = await generateVideo({
+        model,
+        prompt: body.prompt,
+        duration: veoDuration,
+        resolution,
+        providerOptions: {
+          vertex: {
+            generateAudio: body.audio ?? false,
+            pollTimeoutMs: 600000,
+          },
+        },
+      });
+    } else if (modelId.startsWith("klingai/")) {
+      // KlingAI: 5/10s. Uses aspectRatio.
+      const klingDuration = duration > 5 ? 10 : 5;
+      result = await generateVideo({
+        model,
+        prompt: body.prompt,
+        aspectRatio,
+        duration: klingDuration,
+        providerOptions: {
+          klingai: {
+            mode: body.quality === "pro" ? "pro" : "std",
+            pollTimeoutMs: 600000,
+          },
+        },
+      });
+    } else if (modelId.startsWith("alibaba/")) {
+      // Wan: 1-15s. Uses resolution exclusively.
+      result = await generateVideo({
+        model,
+        prompt: body.prompt,
+        resolution,
+        duration,
+        providerOptions: {
+          alibaba: {
+            promptExtend: true,
+            pollTimeoutMs: 600000,
+          },
+        },
+      });
+    } else if (modelId.startsWith("xai/")) {
+      // Grok: Supports both.
+      result = await generateVideo({
+        model,
+        prompt: body.prompt,
+        aspectRatio,
+        resolution,
+        duration,
+        providerOptions: {
+          xai: {
+            pollTimeoutMs: 600000,
+          },
+        },
+      });
     } else if (modelId.startsWith("bytedance/")) {
-      providerOptions.bytedance = {
-        enableAudio: body.audio ?? false,
-      };
+      // Seedance: Supports both.
+      result = await generateVideo({
+        model,
+        prompt: body.prompt,
+        aspectRatio,
+        resolution,
+        duration,
+        providerOptions: {
+          bytedance: {
+            generateAudio: body.audio ?? false,
+            pollTimeoutMs: 600000,
+          },
+        },
+      });
+    } else {
+      // Fallback
+      result = await generateVideo({
+        model,
+        prompt: body.prompt,
+        aspectRatio,
+        duration,
+      });
     }
 
-    const result = await generateVideo({
-      model: gateway.videoModel(modelId),
-      prompt: body.prompt,
-      aspectRatio: (body.aspectRatio || "16:9") as `${number}:${number}`,
-      duration,
-      providerOptions,
-    });
-
-    if (!result.videos || result.videos.length === 0) {
+    if (!result.video) {
+      console.error("[canvas/generate-video] Model returned no video data");
       return NextResponse.json(
-        { error: "No video generated" },
+        { error: "Model failed to return a video." },
         { status: 500 },
       );
     }
 
-    const videoData = result.videos[0];
+    // Save with correct media type and extension
+    const videoData = result.video;
+    const mediaType = videoData.mediaType || "video/mp4";
+    const extension = mediaType.split("/")[1] || "mp4";
     const buffer = Buffer.from(videoData.uint8Array);
-    const filename = `canvas/vid_${Date.now()}_${userId.slice(-6)}.mp4`;
+    const filename = `canvas/vid_${Date.now()}_${userId.slice(-6)}.${extension}`;
 
     const blob = await put(filename, buffer, {
       access: "public",
-      contentType: "video/mp4",
+      contentType: mediaType,
     });
+
+    console.log(
+      "[canvas/generate-video] Successfully generated video:",
+      blob.url,
+    );
 
     return NextResponse.json({
       mediaUrl: blob.url,
@@ -125,13 +192,19 @@ export async function POST(req: Request) {
       duration,
     });
   } catch (error) {
-    console.error("[canvas/generate-video] Error:", error);
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Failed to generate video",
-      },
-      { status: 500 },
-    );
+    console.error("[canvas/generate-video] Fatal Error:", error);
+
+    let errorMessage = "Generation failed";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      if (isProviderError(error)) {
+        console.error(
+          "[canvas/generate-video] Provider response observed:",
+          JSON.stringify(error.providerResponse),
+        );
+      }
+    }
+
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
