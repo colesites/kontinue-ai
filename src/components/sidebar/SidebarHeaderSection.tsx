@@ -38,6 +38,8 @@ export function SidebarHeaderSection({
             </p>
           </div>
         </div>
+
+        {/* Primary action */}
         <Link
           href="/"
           onClick={onNavigate}
@@ -46,14 +48,20 @@ export function SidebarHeaderSection({
           <MessageSquarePlus size={18} />
           <span>New Chat</span>
         </Link>
-        <Link
-          href="/canvas"
-          onClick={onNavigate}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sidebar-border/60 bg-sidebar-accent/30 px-4 py-2.5 text-sm font-medium text-sidebar-foreground shadow-sm transition-colors hover:bg-sidebar-accent/50"
-        >
-          <Palette size={18} />
-          <span>Canvas</span>
-        </Link>
+
+        {/* Secondary actions — compact row */}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/canvas"
+            onClick={onNavigate}
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-sidebar-border/60 bg-sidebar-accent/30 px-3 py-2 text-xs font-medium text-sidebar-foreground shadow-sm transition-colors hover:bg-sidebar-accent/50"
+          >
+            <Palette size={14} />
+            <span>Canvas</span>
+          </Link>
+        </div>
+
+        {/* Search */}
         <div className="relative">
           <SearchIcon
             size={14}

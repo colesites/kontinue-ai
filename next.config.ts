@@ -20,6 +20,9 @@ const nextConfig: NextConfig = {
   experimental: {
     authInterrupts: true,
   },
+  async headers() {
+    return [];
+  },
 };
 
 export default withSentryConfig(nextConfig, {

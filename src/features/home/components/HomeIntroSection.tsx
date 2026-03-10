@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Copy, Link2, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { Code2, Copy, Link2, Sparkles } from "lucide-react";
 import { HowToButton } from "@/features/import/components/HowToButton";
 import { type Provider } from "@/utils/url-safety";
 import { HomeImportDialog } from "@/features/home/components/HomeImportDialog";
@@ -67,7 +68,8 @@ export function HomeIntroSection({
         How can I help you, {firstName}?
       </h1>
       <p className="mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base">
-        Ask anything to start a new chat, or import a shared link from another AI app.
+        Ask anything to start a new chat, or import a shared link from another
+        AI app.
       </p>
 
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
@@ -112,6 +114,30 @@ export function HomeIntroSection({
           <ProviderPill name="Mistral" color="#ffffff" />
         </div>
       </div>
+
+      {/* Kode Desktop promotion card */}
+      {/* <Link
+        href="/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group mt-4 flex w-full items-center gap-4 rounded-2xl border border-primary/20 bg-primary/5 p-5 text-left shadow-sm transition-all hover:border-primary/40 hover:bg-primary/10 hover:shadow-md"
+      >
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/10 text-primary transition-transform group-hover:scale-110">
+          <Code2 size={20} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-foreground">
+            Download Kode Desktop
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Get the full AI-powered coding environment as a standalone desktop
+            application for the best performance.
+          </p>
+        </div>
+        <span className="shrink-0 text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+          Download →
+        </span>
+      </Link> */}
     </div>
   );
 }

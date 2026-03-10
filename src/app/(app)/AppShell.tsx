@@ -1,13 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { useAuth, useUser } from "@clerk/nextjs";
-import { useMutation } from "convex/react";
+import { useUser } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
 import { Plus, Search } from "lucide-react";
-import { useEffect } from "react";
 import type { ReactNode } from "react";
-import { api } from "@convex/_generated/api";
+import Link from "next/link";
 import { Sidebar as AppSidebar } from "@/components/Sidebar";
 import {
   SidebarInset,
@@ -19,9 +16,8 @@ import { cn } from "@/utils/cn";
 import { ModeToggle } from "@/components/ModeToggle";
 import { ShareButton } from "@/components/ShareButton";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
-import { persistedPlanForTier } from "@/lib/plan-tier";
-import { usePlanTier } from "@/lib/use-plan-tier";
 import LoadingFallback from "@/components/LoadingFallback";
+import { UserSync } from "@/components/UserSync";
 
 export function AppShell({
   children,
@@ -30,25 +26,7 @@ export function AppShell({
   children: ReactNode;
   defaultOpen?: boolean;
 }) {
-  const { user, isLoaded } = useUser();
-  const { isLoaded: isAuthLoaded } = useAuth();
-  const getOrCreateUser = useMutation(api.users.getOrCreateUser);
-  const planTier = usePlanTier();
-
-  useEffect(() => {
-    if (!isLoaded || !isAuthLoaded || !user) {
-      return;
-    }
-
-    void getOrCreateUser({
-      clerkUserId: user.id,
-      email: user.primaryEmailAddress?.emailAddress ?? "",
-      name: user.fullName ?? undefined,
-      imageUrl: user.imageUrl ?? undefined,
-      subscriptionStatus: planTier === "free" ? "inactive" : "active",
-      plan: persistedPlanForTier(planTier),
-    });
-  }, [getOrCreateUser, isAuthLoaded, isLoaded, planTier, user]);
+  const { isLoaded } = useUser();
 
   if (!isLoaded) {
     return <LoadingFallback />;
@@ -56,6 +34,7 @@ export function AppShell({
 
   return (
     <ChatProvider>
+      <UserSync />
       <SidebarProvider defaultOpen={defaultOpen}>
         <ShellLayout>{children}</ShellLayout>
       </SidebarProvider>
