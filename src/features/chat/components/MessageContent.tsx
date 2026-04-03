@@ -22,12 +22,12 @@ export const MessageContent = memo(function MessageContent({
         rehypePlugins={[rehypeHighlight]}
         components={{
           p: ({ children, ...props }) => (
-            <p className="[overflow-wrap:anywhere]" {...props}>
+            <p className="wrap-anywhere" {...props}>
               {children}
             </p>
           ),
           li: ({ children, ...props }) => (
-            <li className="[overflow-wrap:anywhere]" {...props}>
+            <li className="wrap-anywhere" {...props}>
               {children}
             </li>
           ),
@@ -40,7 +40,7 @@ export const MessageContent = memo(function MessageContent({
           ),
           th: ({ children, ...props }) => (
             <th
-              className="min-w-32 border border-border/60 bg-muted/40 px-3 py-2 text-left align-top font-semibold [overflow-wrap:anywhere]"
+              className="whitespace-nowrap border border-border/60 bg-muted/40 px-3 py-2 text-left align-top font-semibold"
               {...props}
             >
               {children}
@@ -48,7 +48,7 @@ export const MessageContent = memo(function MessageContent({
           ),
           td: ({ children, ...props }) => (
             <td
-              className="min-w-32 border border-border/60 px-3 py-2 align-top [overflow-wrap:anywhere]"
+              className="border border-border/60 px-3 py-2 align-top wrap-anywhere"
               {...props}
             >
               {children}
