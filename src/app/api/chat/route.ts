@@ -93,6 +93,7 @@ export async function POST(req: Request) {
       modelId,
       webSearchEnabled,
       lastUserContent,
+      maxOutputTokens,
       imageAspectRatio,
       imageSize,
       apiKey: gatewayRuntime.apiKey,
@@ -107,6 +108,7 @@ export async function POST(req: Request) {
       provider: toolsConfig.provider,
       shouldAttachWebSearchTool: toolsConfig.shouldAttachWebSearchTool,
       tools: toolsConfig.tools,
+      maxOutputTokens,
     });
 
     const modelMessages = await convertToModelMessages(messages);

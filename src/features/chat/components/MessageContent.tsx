@@ -21,6 +21,39 @@ export const MessageContent = memo(function MessageContent({
         remarkPlugins={[remarkGfm, remarkBreaks]}
         rehypePlugins={[rehypeHighlight]}
         components={{
+          p: ({ children, ...props }) => (
+            <p className="[overflow-wrap:anywhere]" {...props}>
+              {children}
+            </p>
+          ),
+          li: ({ children, ...props }) => (
+            <li className="[overflow-wrap:anywhere]" {...props}>
+              {children}
+            </li>
+          ),
+          table: ({ children }) => (
+            <div className="my-4 w-full overflow-x-auto rounded-lg border border-border/60">
+              <table className="w-max min-w-full border-collapse text-sm">
+                {children}
+              </table>
+            </div>
+          ),
+          th: ({ children, ...props }) => (
+            <th
+              className="min-w-32 border border-border/60 bg-muted/40 px-3 py-2 text-left align-top font-semibold [overflow-wrap:anywhere]"
+              {...props}
+            >
+              {children}
+            </th>
+          ),
+          td: ({ children, ...props }) => (
+            <td
+              className="min-w-32 border border-border/60 px-3 py-2 align-top [overflow-wrap:anywhere]"
+              {...props}
+            >
+              {children}
+            </td>
+          ),
           // Custom code block rendering with copy button
           pre: ({ children }) => {
             // children is the <code> element
@@ -47,7 +80,7 @@ export const MessageContent = memo(function MessageContent({
             // Inline code
             return (
               <code
-                className="bg-muted/70 px-1.5 py-0.5 rounded text-[0.925em] text-primary font-mono"
+                className="bg-muted/70 break-all rounded px-1.5 py-0.5 font-mono text-[0.925em] text-primary"
                 {...props}
               >
                 {children}

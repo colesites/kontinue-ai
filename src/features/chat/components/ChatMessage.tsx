@@ -6,10 +6,12 @@ import { MessageContent } from "./MessageContent";
 import { ChatMessageActions } from "./ChatMessageActions";
 import { ChatMessageImages } from "./ChatMessageImages";
 
+const EMPTY_IMAGE_PARTS: string[] = [];
+
 export function ChatMessage({
   role,
   content,
-  imageParts = [],
+  imageParts = EMPTY_IMAGE_PARTS,
   isImported,
   isStreaming,
   onRetry,
@@ -45,16 +47,14 @@ export function ChatMessage({
         >
           <div
             className={cn(
-              "prose max-w-none dark:prose-invert",
+              "prose max-w-none break-words dark:prose-invert [overflow-wrap:anywhere]",
               "prose-p:leading-relaxed prose-p:mt-0 prose-p:mb-4 last:prose-p:mb-0",
               "prose-headings:font-semibold prose-headings:mt-6 prose-headings:mb-3",
               "prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg",
               "prose-ul:my-3 prose-ul:list-disc prose-ul:pl-6",
               "prose-ol:my-3 prose-ol:list-decimal prose-ol:pl-6",
               "prose-li:my-1",
-              "prose-table:border-collapse prose-table:w-full prose-table:my-4",
-              "prose-th:border prose-th:border-border prose-th:bg-muted/50 prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:font-semibold",
-              "prose-td:border prose-td:border-border prose-td:px-3 prose-td:py-2",
+              "prose-p:break-words prose-li:break-words prose-a:break-all",
               "prose-blockquote:border-l-4 prose-blockquote:border-primary/50 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:my-3",
               "prose-hr:my-4 prose-hr:border-border",
               "prose-strong:font-bold prose-strong:text-foreground",

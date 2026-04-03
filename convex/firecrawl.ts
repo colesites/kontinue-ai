@@ -7,7 +7,9 @@ import { createGateway } from "@ai-sdk/gateway";
 import { generateText } from "ai";
 
 const FIRECRAWL_API_BASE = "https://api.firecrawl.dev/v1";
-const FIRECRAWL_WAIT_FOR_MS = 1200;
+const FIRECRAWL_WAIT_FOR_MS = 5000;
+const SCRAPE_MAX_RETRIES = 3;
+const SCRAPE_RETRY_DELAY_MS = 3000;
 const NORMALIZER_CHUNK_CHAR_LIMIT = 18_000;
 
 type ParsedMessage = { role: "user" | "assistant"; content: string };
@@ -1176,7 +1178,33 @@ export const importIntoChat = action({
 
     try {
       await reportProgress(5, "Queued");
-      const result = await scrapeAndExtract(args.url, apiKey, reportProgress);
+      let result: FirecrawlExtractionResult | null = null;
+      let lastError: Error | null = null;
+
+      for (let attempt = 1; attempt <= SCRAPE_MAX_RETRIES; attempt++) {
+        try {
+          if (attempt > 1) {
+            lastProgress = 0;
+            lastStage = "";
+            await reportProgress(5, `Retry ${attempt}/${SCRAPE_MAX_RETRIES}`);
+            await new Promise((r) => setTimeout(r, SCRAPE_RETRY_DELAY_MS * attempt));
+          }
+          result = await scrapeAndExtract(args.url, apiKey, reportProgress);
+          break;
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+          const isTimeout =
+            lastError.message.toLowerCase().includes("timed out") ||
+            lastError.message.toLowerCase().includes("timeout");
+          if (!isTimeout || attempt === SCRAPE_MAX_RETRIES) {
+            throw lastError;
+          }
+        }
+      }
+
+      if (!result) {
+        throw lastError ?? new Error("Scrape failed after retries");
+      }
       const messages = (result.messages ?? []).map((message) => ({
         role: message.role,
         content: message.content,

@@ -6,6 +6,7 @@ import type { AiGatewayModel, OpenAIImageSize } from "@/app/api/chat/lib/types";
 import { modelSupportsTools } from "@/app/api/chat/lib/model-utils";
 import { toOpenAIImageSize } from "@/app/api/chat/lib/request-utils";
 import {
+  buildResponseBudgetContext,
   buildImageGenerationContext,
   buildWebSearchContext,
   CHAT_SYSTEM_PROMPT,
@@ -33,6 +34,7 @@ export function buildToolsAndPrompt(options: {
   modelId: string;
   webSearchEnabled: boolean;
   lastUserContent: string;
+  maxOutputTokens: number;
   imageAspectRatio?: string | null;
   imageSize?: string | null;
   apiKey: string;
@@ -43,6 +45,7 @@ export function buildToolsAndPrompt(options: {
     modelId,
     webSearchEnabled,
     lastUserContent,
+    maxOutputTokens,
     imageAspectRatio,
     imageSize,
     apiKey,
@@ -106,6 +109,7 @@ export function buildToolsAndPrompt(options: {
     webSearchEnabled,
     shouldAttachWebSearchTool,
   });
+  const responseBudgetContext = buildResponseBudgetContext({ maxOutputTokens });
   const imageGenContext = buildImageGenerationContext({
     canUseOpenAIImageTool,
     hasImageGen,
@@ -113,7 +117,11 @@ export function buildToolsAndPrompt(options: {
     imageAspectRatio,
     imageSize,
   });
-  const systemPrompt = CHAT_SYSTEM_PROMPT + webSearchContext + imageGenContext;
+  const systemPrompt =
+    CHAT_SYSTEM_PROMPT +
+    responseBudgetContext +
+    webSearchContext +
+    imageGenContext;
 
   const forceImageTool =
     hasImageGen &&

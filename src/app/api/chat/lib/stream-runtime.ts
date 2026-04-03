@@ -16,6 +16,7 @@ type ToolRuntimeOptions = {
   provider: string;
   shouldAttachWebSearchTool: boolean;
   tools: ToolSet;
+  maxOutputTokens: number;
 };
 
 export type ToolRuntime = {
@@ -35,6 +36,7 @@ export function resolveToolRuntime(options: ToolRuntimeOptions): ToolRuntime {
     provider,
     shouldAttachWebSearchTool,
     tools,
+    maxOutputTokens,
   } = options;
 
   const requestedToolNames = Object.keys(tools);
@@ -66,7 +68,11 @@ export function resolveToolRuntime(options: ToolRuntimeOptions): ToolRuntime {
   const maxSteps = shouldAttachWebSearchTool ? 6 : 3;
   const stopWhen: StopCondition<ToolSet>[] =
     hasTools && !shouldDisableTools
-      ? [stepCountIs(maxSteps), shouldStopAfterAnswer]
+      ? [
+          stepCountIs(maxSteps),
+          stopWhenOutputBudgetReached(maxOutputTokens),
+          shouldStopAfterAnswer,
+        ]
       : [];
 
   return {
@@ -76,6 +82,18 @@ export function resolveToolRuntime(options: ToolRuntimeOptions): ToolRuntime {
     maxSteps,
     stopWhen,
   };
+}
+
+export function getTotalOutputTokens(
+  steps: Array<{ usage?: { outputTokens?: number } }>,
+): number {
+  return steps.reduce((sum, step) => sum + (step.usage?.outputTokens ?? 0), 0);
+}
+
+export function stopWhenOutputBudgetReached(
+  maxOutputTokens: number,
+): StopCondition<ToolSet> {
+  return ({ steps }) => getTotalOutputTokens(steps) >= maxOutputTokens;
 }
 
 type BuildStreamOptionsInput = {
@@ -139,6 +157,27 @@ export function buildStreamOptions(options: BuildStreamOptionsInput) {
         toolCallNames: (toolCalls ?? []).map((toolCall) => toolCall.toolName),
         toolResultCount: (toolResults ?? []).length,
       });
+    },
+    onFinish: ({ finishReason, totalUsage, steps }: {
+      finishReason: string;
+      totalUsage: { outputTokens?: number };
+      steps: Array<unknown>;
+    }) => {
+      const totalOutputTokens = totalUsage.outputTokens ?? 0;
+
+      console.log("[chat-debug] stream finish", {
+        finishReason,
+        totalOutputTokens,
+        maxOutputTokens,
+        stepCount: steps.length,
+      });
+
+      if (totalOutputTokens > maxOutputTokens) {
+        console.warn("[chat-debug] output token budget exceeded", {
+          totalOutputTokens,
+          maxOutputTokens,
+        });
+      }
     },
   };
 }

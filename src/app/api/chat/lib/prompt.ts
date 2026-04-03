@@ -22,6 +22,33 @@ Communication style:
 - Use tables only when they improve clarity.
 - Avoid filler, repetition, and vague wording.`;
 
+export function buildResponseBudgetContext(options: {
+  maxOutputTokens: number;
+}): string {
+  const { maxOutputTokens } = options;
+
+  if (maxOutputTokens <= 200) {
+    return [
+      "\n\nResponse budget:",
+      "Your output budget is very small.",
+      "Answer in 1 short paragraph or up to 5 brief bullets.",
+      "Keep the response under roughly 120 words unless the user explicitly asks for more detail.",
+      "Do not use markdown tables unless the user explicitly asks for a table.",
+      "Avoid long intros, repeated caveats, and unnecessary examples.",
+    ].join(" ");
+  }
+
+  if (maxOutputTokens <= 500) {
+    return [
+      "\n\nResponse budget:",
+      "Keep the answer concise and practical.",
+      "Prefer short paragraphs or compact bullets over large markdown tables unless a table is clearly the best format.",
+    ].join(" ");
+  }
+
+  return "";
+}
+
 export function buildWebSearchContext(options: {
   webSearchEnabled: boolean;
   shouldAttachWebSearchTool: boolean;
