@@ -15,6 +15,7 @@
   },
   "scripts": {
     "dev": "bun run dev:web",
+    "build": "bun run build:web",
     "dev:web": "bun run --cwd web dev",
     "dev:mobile": "bun run --cwd mobile dev",
     "dev:convex": "./scripts/convex.sh dev",
