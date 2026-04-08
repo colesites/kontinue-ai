@@ -83,7 +83,7 @@ export declare const components: {
           _creationTime: number;
           _id: string;
           error?: string;
-          errorCode?: number;
+          errorCode?: number | string;
           expiresAt: number;
           extractedJson?: any;
           extractedJsonFileId?: string;
@@ -132,7 +132,7 @@ export declare const components: {
           _creationTime: number;
           _id: string;
           error?: string;
-          errorCode?: number;
+          errorCode?: number | string;
           expiresAt: number;
           extractedJson?: any;
           extractedJsonFileId?: string;
@@ -192,7 +192,7 @@ export declare const components: {
           _creationTime: number;
           _id: string;
           error?: string;
-          errorCode?: number;
+          errorCode?: number | string;
           expiresAt: number;
           extractedJson?: any;
           extractedJsonFileId?: string;
@@ -239,7 +239,7 @@ export declare const components: {
         { id: string },
         null | {
           error?: string;
-          errorCode?: number;
+          errorCode?: number | string;
           expiresAt: number;
           extractedJson?: any;
           extractedJsonFileUrl?: string | null;
@@ -284,7 +284,7 @@ export declare const components: {
         { id: string },
         null | {
           error?: string;
-          errorCode?: number;
+          errorCode?: number | string;
           expiresAt: number;
           scrapedAt?: number;
           scrapingAt?: number;
@@ -313,7 +313,7 @@ export declare const components: {
             _creationTime: number;
             _id: string;
             error?: string;
-            errorCode?: number;
+            errorCode?: number | string;
             expiresAt: number;
             extractedJson?: any;
             extractedJsonFileId?: string;
@@ -366,7 +366,7 @@ export declare const components: {
           _creationTime: number;
           _id: string;
           error?: string;
-          errorCode?: number;
+          errorCode?: number | string;
           expiresAt: number;
           extractedJson?: any;
           extractedJsonFileId?: string;
