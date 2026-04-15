@@ -30,6 +30,8 @@ export default async function AppLayout({
   const isProductionDomain =
     host === "chat.kontinueai.com" || host.endsWith(".vercel.app"); // Also catch preview deploys if needed
 
+  // Whitelist temporarily deactivated as waitlist countdown is ending
+  /*
   if (isProductionDomain) {
     const client = await clerkClient();
     const user = await client.users.getUser(userId);
@@ -45,6 +47,7 @@ export default async function AppLayout({
       }
     }
   }
+  */
 
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get("sidebar_state")?.value === "true";

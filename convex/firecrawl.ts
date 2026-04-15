@@ -433,6 +433,18 @@ type FirecrawlExtractionResult = {
   extractionStrategy: "regex" | "normalized_markers" | "llm";
 };
 
+type FirecrawlScrapeApiResponse = {
+  success?: boolean;
+  error?: string;
+  data?: {
+    markdown?: string;
+    metadata?: {
+      title?: string;
+      [key: string]: unknown;
+    } | null;
+  };
+};
+
 function normalizeRoleLabel(label: string): "user" | "assistant" | null {
   const normalized = label
     .toLowerCase()
@@ -1014,7 +1026,7 @@ async function scrapeAndExtract(
   }
 
   const scrapeCompletedAtMs = Date.now();
-  const result = await response.json();
+  const result = (await response.json()) as FirecrawlScrapeApiResponse;
   if (!result.success) {
     throw new Error(result.error || "Firecrawl scrape failed");
   }
