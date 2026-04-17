@@ -16,6 +16,7 @@ interface CanvasInputBarProps {
     duration?: number;
     quality?: "standard" | "pro";
     negativePrompt?: string;
+    imageUrl?: string;
   }) => void;
   isGenerating: boolean;
   credits: { remaining: number; total: number };
@@ -59,6 +60,10 @@ export function CanvasInputBar({
     maxChars,
     canSubmit,
     handleSubmit,
+    attachedImage,
+    isUploading,
+    handleFileAttach,
+    removeAttachedImage,
   } = useCanvasInput({
     onGenerate,
     isGenerating,
@@ -94,6 +99,10 @@ export function CanvasInputBar({
               textareaRef={textareaRef}
               activeModel={activeModel}
               maxChars={maxChars}
+              attachedImage={attachedImage}
+              isUploading={isUploading}
+              onFileAttach={handleFileAttach}
+              onRemoveImage={removeAttachedImage}
             />
 
             <CanvasInputControls

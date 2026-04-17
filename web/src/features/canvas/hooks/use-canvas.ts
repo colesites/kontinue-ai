@@ -120,6 +120,7 @@ export function useCanvas() {
       quality?: "standard" | "pro";
       audio?: boolean;
       resolution?: string;
+      imageUrl?: string;
     }) => {
       if (isGenerating) return;
 
@@ -170,6 +171,7 @@ export function useCanvas() {
             model: opts.model,
             aspectRatio: opts.aspectRatio,
             resolution: opts.resolution,
+            ...(opts.imageUrl && { image: opts.imageUrl }),
             ...(opts.mode === "video" && {
               duration: opts.duration,
               quality: opts.quality,

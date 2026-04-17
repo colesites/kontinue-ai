@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { toast } from "sonner";
 import {
   DEFAULT_IMAGE_MODEL,
   DEFAULT_VIDEO_MODEL,
@@ -11,6 +12,12 @@ import {
   isDurationSupported,
 } from "../../../lib/canvas-models";
 
+export interface AttachedImage {
+  url: string;
+  previewUrl: string;
+  filename: string;
+}
+
 interface UseCanvasInputProps {
   onGenerate: (opts: {
     prompt: string;
@@ -20,6 +27,7 @@ interface UseCanvasInputProps {
     resolution?: string;
     duration?: number;
     quality?: "standard" | "pro";
+    imageUrl?: string;
   }) => void;
   isGenerating: boolean;
   credits: { remaining: number; total: number };
@@ -42,6 +50,8 @@ export function useCanvasInput({
   const [videoModel, setVideoModel] = useState(DEFAULT_VIDEO_MODEL);
   const [duration, setDuration] = useState(5);
   const [quality, setQuality] = useState<"standard" | "pro">("standard");
+  const [attachedImage, setAttachedImage] = useState<AttachedImage | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -126,6 +136,60 @@ export function useCanvasInput({
     (isFreeModel || (mode === "image" ? canGenerateImages : canGenerateVideos)) &&
     (!maxChars || prompt.trim().length <= maxChars);
 
+  const handleFileAttach = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only image files are supported.");
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB.");
+      return;
+    }
+
+    setIsUploading(true);
+    const previewUrl = URL.createObjectURL(file);
+
+    try {
+      const res = await fetch(`/api/files/upload?filename=${encodeURIComponent(file.name)}`, {
+        method: "POST",
+        body: file,
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Upload failed");
+      }
+
+      const data = await res.json();
+      setAttachedImage({
+        url: data.url,
+        previewUrl,
+        filename: file.name,
+      });
+      toast.success("Image attached!");
+    } catch (err) {
+      URL.revokeObjectURL(previewUrl);
+      toast.error(err instanceof Error ? err.message : "Failed to upload image.");
+    } finally {
+      setIsUploading(false);
+      // Reset input so the same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }, [fileInputRef]);
+
+  const removeAttachedImage = useCallback(() => {
+    if (attachedImage) {
+      URL.revokeObjectURL(attachedImage.previewUrl);
+    }
+    setAttachedImage(null);
+  }, [attachedImage]);
+
   const handleSubmit = useCallback(() => {
     if (!canSubmit) return;
     onGenerate({
@@ -136,8 +200,10 @@ export function useCanvasInput({
       resolution: resolution || undefined,
       quality,
       ...(mode === "video" && { duration }),
+      ...(attachedImage && { imageUrl: attachedImage.url }),
     });
     setPrompt("");
+    removeAttachedImage();
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
@@ -151,6 +217,8 @@ export function useCanvasInput({
     quality,
     duration,
     resolution,
+    attachedImage,
+    removeAttachedImage,
   ]);
 
   const handlePromptChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -187,5 +255,9 @@ export function useCanvasInput({
     costMultiplier,
     canSubmit,
     handleSubmit,
+    attachedImage,
+    isUploading,
+    handleFileAttach,
+    removeAttachedImage,
   };
 }

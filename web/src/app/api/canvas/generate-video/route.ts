@@ -33,6 +33,7 @@ export async function POST(req: Request) {
       resolution?: string;
       aspectRatio?: string;
       duration?: number;
+      image?: string;
     };
 
     if (!body.prompt || body.prompt.trim().length < 3) {
@@ -71,6 +72,10 @@ export async function POST(req: Request) {
     const resolution = (body.resolution || "1280x720") as `${number}x${number}`;
     const aspectRatio = (body.aspectRatio || "16:9") as `${number}:${number}`;
 
+    const promptParam = body.image 
+      ? { text: body.prompt, image: body.image } 
+      : body.prompt;
+
     // ── Provider-Specific Params ─────────────────────────────
 
     let result;
@@ -81,7 +86,7 @@ export async function POST(req: Request) {
       const veoDuration = [4, 6, 8].includes(duration) ? duration : 4;
       result = await generateVideo({
         model,
-        prompt: body.prompt,
+        prompt: promptParam,
         duration: veoDuration,
         resolution,
         providerOptions: {
@@ -96,7 +101,7 @@ export async function POST(req: Request) {
       const klingDuration = duration > 5 ? 10 : 5;
       result = await generateVideo({
         model,
-        prompt: body.prompt,
+        prompt: promptParam,
         aspectRatio,
         duration: klingDuration,
         providerOptions: {
@@ -110,7 +115,7 @@ export async function POST(req: Request) {
       // Wan: 1-15s. Uses resolution exclusively.
       result = await generateVideo({
         model,
-        prompt: body.prompt,
+        prompt: promptParam,
         resolution,
         duration,
         providerOptions: {
@@ -124,7 +129,7 @@ export async function POST(req: Request) {
       // Grok: Supports both.
       result = await generateVideo({
         model,
-        prompt: body.prompt,
+        prompt: promptParam,
         aspectRatio,
         resolution,
         duration,
@@ -138,7 +143,7 @@ export async function POST(req: Request) {
       // Seedance: Supports both.
       result = await generateVideo({
         model,
-        prompt: body.prompt,
+        prompt: promptParam,
         aspectRatio,
         resolution,
         duration,
@@ -153,7 +158,7 @@ export async function POST(req: Request) {
       // Fallback
       result = await generateVideo({
         model,
-        prompt: body.prompt,
+        prompt: promptParam,
         aspectRatio,
         duration,
       });

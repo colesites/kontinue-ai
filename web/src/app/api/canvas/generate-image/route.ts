@@ -24,6 +24,7 @@ export async function POST(req: Request) {
       prompt?: string;
       model?: string;
       aspectRatio?: string;
+      image?: string;
     };
 
     if (!body.prompt || body.prompt.trim().length < 3) {
@@ -90,9 +91,19 @@ export async function POST(req: Request) {
         size: size === "auto" ? "auto" : size,
       });
 
+      const messages = body.image ? [
+        {
+          role: "user" as const,
+          content: [
+            { type: "text" as const, text: `Generate a high-quality image based on this prompt: ${body.prompt}. Use the image_generation tool.` },
+            { type: "image" as const, image: new URL(body.image) }
+          ]
+        }
+      ] : undefined;
+
       const { steps } = await generateText({
         model: gateway(modelId) as Parameters<typeof generateText>[0]["model"],
-        prompt: `Generate a high-quality image based on this prompt: ${body.prompt}. Use the image_generation tool.`,
+        ...(messages ? { messages } : { prompt: `Generate a high-quality image based on this prompt: ${body.prompt}. Use the image_generation tool.` }),
         tools: {
           image_generation: imageTool,
         },
@@ -141,7 +152,9 @@ export async function POST(req: Request) {
     } else {
       const result = await generateImage({
         model: gateway.imageModel(modelId),
-        prompt: body.prompt,
+        prompt: body.image 
+          ? { text: body.prompt || "", images: [body.image] } 
+          : (body.prompt || ""),
         aspectRatio: (body.aspectRatio || "1:1") as `${number}:${number}`,
         n: 1,
       });
