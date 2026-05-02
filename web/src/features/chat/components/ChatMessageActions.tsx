@@ -7,17 +7,11 @@ import { HiSpeakerWave } from "react-icons/hi2";
 import { cn } from "../../../utils/cn";
 import { useCopyToClipboard } from "../../../hooks/use-copy-to-clipboard";
 import { useTextToSpeech } from "../hooks/use-text-to-speech";
-import {
   ModelSelector,
   ModelSelectorContent,
-  ModelSelectorEmpty,
-  ModelSelectorGroup,
-  ModelSelectorInput,
-  ModelSelectorItem,
-  ModelSelectorList,
-  ModelSelectorName,
   ModelSelectorTrigger,
 } from "../../../components/ai-elements/model-selector";
+import { SharedModelSelectorContent } from "../../../components/ai-elements/shared-model-selector-content";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -121,42 +115,22 @@ export function ChatMessageActions({
             <ModelSelectorTrigger asChild>
               <button className="hidden" aria-hidden="true" />
             </ModelSelectorTrigger>
-            <ModelSelectorContent>
-              <ModelSelectorInput placeholder="Search models..." />
-              <ModelSelectorList>
-                <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-                {!modelOptionsByProvider ||
-                Object.keys(modelOptionsByProvider).length === 0 ? (
-                  <ModelSelectorItem disabled value="no-models">
-                    No models
-                  </ModelSelectorItem>
-                ) : (
-                  Object.entries(modelOptionsByProvider).map(
-                    ([provider, models]) => (
-                      <ModelSelectorGroup key={provider}>
-                        <div className="px-2 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                          {provider}
-                        </div>
-                        {models.map((m) => (
-                          <ModelSelectorItem
-                            key={m.id}
-                            disabled={m.disabled}
-                            onSelect={() => {
-                              if (m.disabled) return;
-                              onSwitchModel?.(m.id);
-                              setSwitchModelOpen(false);
-                            }}
-                            value={m.name}
-                          >
-                            <ModelSelectorName>{m.name}</ModelSelectorName>
-                            {m.id === currentModelId ? " (current)" : ""}
-                          </ModelSelectorItem>
-                        ))}
-                      </ModelSelectorGroup>
-                    ),
-                  )
-                )}
-              </ModelSelectorList>
+            <ModelSelectorContent className="sm:max-w-4xl h-[75vh] sm:h-[600px] p-0 flex flex-col overflow-hidden bg-background">
+              <SharedModelSelectorContent
+                selectedModelId={currentModelId}
+                onModelSelect={(id) => {
+                  onSwitchModel?.(id);
+                  setSwitchModelOpen(false);
+                }}
+                modelIdsFilter={
+                  modelOptionsByProvider
+                    ? Object.values(modelOptionsByProvider)
+                        .flat()
+                        .filter((m) => !m.disabled)
+                        .map((m) => m.id)
+                    : undefined
+                }
+              />
             </ModelSelectorContent>
           </ModelSelector>
         </>

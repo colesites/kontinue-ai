@@ -1,15 +1,11 @@
 import {
   ModelSelector,
   ModelSelectorContent,
-  ModelSelectorEmpty,
-  ModelSelectorGroup,
-  ModelSelectorInput,
-  ModelSelectorItem,
-  ModelSelectorList,
   ModelSelectorLogo,
   ModelSelectorName,
   ModelSelectorTrigger,
 } from "../../../components/ai-elements/model-selector";
+import { SharedModelSelectorContent } from "../../../components/ai-elements/shared-model-selector-content";
 import { PremiumModelBadge } from "../../../components/ai-elements/premium-model-badge";
 import { ModelCapabilityIcons } from "../../../components/ai-elements/model-capability-icons";
 import { PromptInputButton } from "../../../components/ai-elements/prompt-input";
@@ -34,15 +30,6 @@ export function ChatInputModelSelector({
   const { getCapabilities, isPremium } = useModelCapabilities();
   const isPro = useIsProPlan();
 
-  const groupedModels = AVAILABLE_MODELS.reduce(
-    (acc, m) => {
-      if (!acc[m.provider]) acc[m.provider] = [];
-      acc[m.provider].push(m);
-      return acc;
-    },
-    {} as Record<string, typeof AVAILABLE_MODELS>,
-  );
-
   const selectedModelData = AVAILABLE_MODELS.find((m) => m.id === model);
 
   return (
@@ -64,46 +51,14 @@ export function ChatInputModelSelector({
           )}
         </PromptInputButton>
       </ModelSelectorTrigger>
-      <ModelSelectorContent>
-        <ModelSelectorInput placeholder="Search models..." />
-        <ModelSelectorList>
-          <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-          {Object.entries(groupedModels).map(([provider, models]) => (
-            <ModelSelectorGroup key={provider}>
-              <div className="px-2 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                {provider}
-              </div>
-              {models.map((m) => {
-                const premium = isPremium(m.id);
-                const disabledByPlan = premium && !isPro;
-
-                return (
-                  <ModelSelectorItem
-                    key={m.id}
-                    disabled={disabledByPlan}
-                    onSelect={() => {
-                      if (disabledByPlan) return;
-                      onModelChange(m.id);
-                      onOpenChange(false);
-                    }}
-                    value={m.name}
-                  >
-                    <ModelSelectorLogo provider={m.provider} />
-                    <ModelSelectorName>{m.name}</ModelSelectorName>
-                    {premium && <PremiumModelBadge />}
-                    <ModelCapabilityIcons
-                      className="mr-2 hidden md:flex"
-                      capabilities={getCapabilities(m.id)}
-                    />
-                    {model === m.id && (
-                      <CheckIcon className="ml-auto size-4" />
-                    )}
-                  </ModelSelectorItem>
-                );
-              })}
-            </ModelSelectorGroup>
-          ))}
-        </ModelSelectorList>
+      <ModelSelectorContent className="sm:max-w-4xl h-[75vh] sm:h-[600px] p-0 flex flex-col overflow-hidden">
+        <SharedModelSelectorContent
+          selectedModelId={model}
+          onModelSelect={(id) => {
+            onModelChange(id);
+            onOpenChange(false);
+          }}
+        />
       </ModelSelectorContent>
     </ModelSelector>
   );
