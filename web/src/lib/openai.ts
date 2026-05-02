@@ -6,7 +6,6 @@ export const OPENAI_MODELS: ModelOption[] = [
     name: "GPT 5.5 Pro",
     provider: "openai",
     description: "High-performance model for advanced reasoning, and coding",
-    isDefault: true,
   },
   {
     id: "openai/gpt-5.5",
@@ -24,7 +23,7 @@ export const OPENAI_MODELS: ModelOption[] = [
     id: "openai/gpt-5.4",
     name: "GPT 5.4",
     provider: "openai",
-    description: "OpenAI's most intelligent, flagship agentic model",
+    description: "Fast, efficient model for everyday AI tasks",
   },
   {
     id: "openai/gpt-5.4-mini",

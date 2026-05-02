@@ -53,12 +53,12 @@ export const ALIBABA_MODELS: ModelOption[] = [
     id: "alibaba/qwen3-vl-instruct",
     name: "Qwen3 VL Instruct",
     provider: "alibaba",
-    description: "Image capable",
+    description: "Fast responses",
   },
   {
     id: "alibaba/qwen3-vl-thinking",
     name: "Qwen3 VL Thinking",
     provider: "alibaba",
-    description: "Image capable",
+    description: "Fast responses",
   },
 ];

@@ -83,7 +83,7 @@ export const MISTRAL_MODELS: ModelOption[] = [
     id: "mistral/pixtral-large",
     name: "Pixtral Large",
     provider: "mistral",
-    description: "Image capable",
+    description: "Fast and efficient",
   },
   {
     id: "mistral/magistral-medium",
@@ -101,6 +101,6 @@ export const MISTRAL_MODELS: ModelOption[] = [
     id: "mistral/pixtral-12b",
     name: "Pixtral 12B",
     provider: "mistral",
-    description: "Image capable",
+    description: "Fast and efficient",
   },
 ];

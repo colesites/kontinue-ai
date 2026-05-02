@@ -17,7 +17,7 @@ import { consumePendingChatDraft } from "../../../lib/pending-chat-draft";
 
 export function useChatState({ chatId }: { chatId: Id<"chats"> }) {
   const isPaidPlan = useIsProPlan();
-  const { isPremium } = useModelCapabilities();
+  const { isProModel } = useModelCapabilities();
   const persistedDefaultModel = useQuery(api.users.getDefaultModel, {});
   const saveDefaultModel = useMutation(api.users.setDefaultModel);
 
@@ -88,12 +88,12 @@ export function useChatState({ chatId }: { chatId: Id<"chats"> }) {
         id: model.id,
         name: model.name,
         provider: model.provider,
-        disabled: isPremium(model.id) && !isPaidPlan,
+        disabled: !isPaidPlan && isProModel(model.id),
       }));
     }
 
     return next;
-  }, [modelOptionsByProvider, isPremium, isPaidPlan]);
+  }, [isPaidPlan, isProModel, modelOptionsByProvider]);
 
   const consumeDraft = (onSend: (text: string) => void) => {
     if (hasConsumedPendingDraftRef.current) return;

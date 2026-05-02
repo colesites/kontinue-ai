@@ -39,7 +39,7 @@ export const AVAILABLE_MODELS: ModelOption[] = [
   ...ALIBABA_MODELS,
 ];
 
-export const FREE_DEFAULT_MODEL_ID = "deepseek/deepseek-v3.2";
+export const FREE_DEFAULT_MODEL_ID = "openai/gpt-5.4-mini";
 export const PRO_DEFAULT_MODEL_ID = "openai/gpt-5.2-pro";
 
 // Models that should remain usable on the free plan even if the AI Gateway

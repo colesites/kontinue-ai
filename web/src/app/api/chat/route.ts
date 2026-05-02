@@ -4,8 +4,7 @@ import {
   type LanguageModel,
 } from "ai";
 import { gateway } from "@ai-sdk/gateway";
-import { deriveIsPremium } from "../../../lib/model-capabilities";
-import { ALWAYS_FREE_MODEL_IDS } from "../../../lib/models";
+import { isProModel } from "../../../lib/model-pricing";
 import { isPaidTier } from "../../../lib/plan-tier";
 import { getAiGatewayModelsCached } from "./lib/model-utils";
 import { getTokenLimitsByTier, getUserPlanTier } from "./lib/plan-limits";
@@ -59,8 +58,8 @@ export async function POST(req: Request) {
       });
     }
 
-    const isPremium = deriveIsPremium(requestedModel);
-    if (!isPaidTier(planTier) && isPremium && !ALWAYS_FREE_MODEL_IDS.has(modelId)) {
+    const isPremium = isProModel(requestedModel);
+    if (!isPaidTier(planTier) && isPremium) {
       return new Response("Starter or Pro plan required for this model", {
         status: 403,
       });

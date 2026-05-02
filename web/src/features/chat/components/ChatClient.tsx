@@ -32,7 +32,7 @@ import { ChatImportStatusBanner } from "./ChatImportStatusBanner";
 
 export function ChatClient() {
   const { setChatInfo, clearChatInfo } = useChatContext();
-  const { getCapabilities, isPremium } = useModelCapabilities();
+  const { getCapabilities, isProModel } = useModelCapabilities();
   const { state: sidebarState, isMobile: isSidebarMobile } = useSidebar();
   const params = useParams();
   const router = useRouter();
@@ -57,7 +57,7 @@ export function ChatClient() {
   // 3. Messaging Logic
   const messaging = useChatMessaging({
     chatId,
-    isPremium,
+    isPremium: isProModel,
     addMessage,
     getState: () => ({
       selectedModel: chatState.selectedModel,

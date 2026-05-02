@@ -7,22 +7,7 @@ export type ModelCapability =
   | "thinking"
   | "embedding";
 
-type AiGatewayModel = {
-  id: string;
-  type?: "language" | "embedding" | "image" | string;
-  tags?: string[];
-  pricing?: Record<string, unknown>;
-};
-
-export function deriveIsPremium(model: AiGatewayModel): boolean {
-  const caps = deriveCapabilities(model);
-  return (
-    caps.includes("image-generation") ||
-    caps.includes("thinking") ||
-    caps.includes("web-search") ||
-    caps.includes("explicit-caching")
-  );
-}
+import type { AiGatewayModel } from "./model-pricing";
 
 export function deriveCapabilities(model: AiGatewayModel): ModelCapability[] {
   const caps = new Set<ModelCapability>();

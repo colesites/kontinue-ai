@@ -1,9 +1,10 @@
+import { Command as CommandPrimitive } from "cmdk";
+import { SearchIcon } from "lucide-react";
 import {
   Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
   CommandSeparator,
@@ -42,7 +43,10 @@ export const ModelSelectorContent = ({
   ...props
 }: ModelSelectorContentProps) => (
   <DialogContent
-    className={cn("p-0", className)}
+    className={cn(
+      "p-0 [&>button]:top-[1.375rem] [&>button]:right-5",
+      className
+    )}
     {...props}
     onOpenAutoFocus={(e) => {
       props.onOpenAutoFocus?.(e);
@@ -63,13 +67,22 @@ export const ModelSelectorDialog = (props: ModelSelectorDialogProps) => (
   <CommandDialog {...props} />
 );
 
-export type ModelSelectorInputProps = ComponentProps<typeof CommandInput>;
+export type ModelSelectorInputProps = ComponentProps<typeof CommandPrimitive.Input>;
 
 export const ModelSelectorInput = ({
   className,
   ...props
 }: ModelSelectorInputProps) => (
-  <CommandInput className={cn("h-auto py-3.5", className)} {...props} />
+  <div className="flex items-center gap-3 border-b border-border px-5 h-16 shrink-0 bg-background relative z-10 transition-colors focus-within:bg-muted/10">
+    <SearchIcon className="size-5 shrink-0 text-muted-foreground opacity-70" />
+    <CommandPrimitive.Input
+      className={cn(
+        "placeholder:text-muted-foreground flex h-full w-full bg-transparent text-[15px] outline-none disabled:cursor-not-allowed disabled:opacity-50",
+        className
+      )}
+      {...props}
+    />
+  </div>
 );
 
 export type ModelSelectorListProps = ComponentProps<typeof CommandList>;

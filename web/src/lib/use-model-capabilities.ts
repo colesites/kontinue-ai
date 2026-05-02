@@ -3,17 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   deriveCapabilities,
-  deriveIsPremium,
   fetchAiGatewayModels,
   type ModelCapability,
 } from "./model-capabilities";
-import { ALWAYS_FREE_MODEL_IDS } from "./models";
+import { isProModel } from "./model-pricing";
 
 export function useModelCapabilities() {
   const [capabilitiesById, setCapabilitiesById] = useState<
     Record<string, ModelCapability[]>
   >({});
-  const [premiumById, setPremiumById] = useState<Record<string, boolean>>({});
+  const [proModelById, setProModelById] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -24,17 +23,17 @@ export function useModelCapabilities() {
         if (cancelled) return;
 
         const next: Record<string, ModelCapability[]> = {};
-        const nextPremium: Record<string, boolean> = {};
+        const nextProModels: Record<string, boolean> = {};
         for (const m of models) {
           next[m.id] = deriveCapabilities(m);
-          nextPremium[m.id] = deriveIsPremium(m);
+          nextProModels[m.id] = isProModel(m);
         }
         setCapabilitiesById(next);
-        setPremiumById(nextPremium);
+        setProModelById(nextProModels);
       } catch {
         if (cancelled) return;
         setCapabilitiesById({});
-        setPremiumById({});
+        setProModelById({});
       }
     })();
 
@@ -46,13 +45,10 @@ export function useModelCapabilities() {
   return useMemo(
     () => ({
       getCapabilities: (modelId: string) => capabilitiesById[modelId] ?? [],
-      isPremium: (modelId: string) =>
-        ALWAYS_FREE_MODEL_IDS.has(modelId)
-          ? false
-          : premiumById[modelId] ?? true,
+      isProModel: (modelId: string) => proModelById[modelId] ?? true,
       capabilitiesById,
-      premiumById,
+      proModelById,
     }),
-    [capabilitiesById, premiumById]
+    [capabilitiesById, proModelById]
   );
 }

@@ -11,7 +11,6 @@ import { SharedModelSelectorContent } from "../../../components/ai-elements/shar
 import { AVAILABLE_MODELS } from "../../../lib/models";
 import { useModelCapabilities } from "../../../lib/use-model-capabilities";
 import { ModelCapabilityIcons } from "../../../components/ai-elements/model-capability-icons";
-import { useIsProPlan } from "../../../lib/use-plan-tier";
 import { PremiumModelBadge } from "../../../components/ai-elements/premium-model-badge";
 
 export function ModelSelectorWrapper({
@@ -24,8 +23,7 @@ export function ModelSelectorWrapper({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const { getCapabilities, isPremium } = useModelCapabilities();
-  const isPro = useIsProPlan();
+  const { getCapabilities, isProModel } = useModelCapabilities();
   const selectedModelData = AVAILABLE_MODELS.find(
     (m) => m.id === selectedModel,
   );
@@ -46,7 +44,7 @@ export function ModelSelectorWrapper({
               <span className="text-sm font-medium text-foreground truncate max-w-[80px]">
                 {selectedModelData.name}
               </span>
-              {isPremium(selectedModelData.id) && <PremiumModelBadge />}
+              {isProModel(selectedModelData.id) && <PremiumModelBadge />}
               <ModelCapabilityIcons
                 className="ml-1"
                 capabilities={getCapabilities(selectedModelData.id)}

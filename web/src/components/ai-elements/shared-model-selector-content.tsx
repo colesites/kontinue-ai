@@ -26,7 +26,7 @@ export function SharedModelSelectorContent({
   modelIdsFilter?: string[];
 }) {
   const [activeProvider, setActiveProvider] = useState<string | null>(null);
-  const { getCapabilities, isPremium } = useModelCapabilities();
+  const { getCapabilities, isProModel } = useModelCapabilities();
   const isPro = useIsProPlan();
 
   const modelsToDisplay = useMemo(() => {
@@ -53,7 +53,7 @@ export function SharedModelSelectorContent({
     <div className="flex h-full w-full flex-row overflow-hidden bg-background">
       {/* Sidebar for providers */}
       <div className="flex w-[68px] sm:w-56 flex-col border-r border-border bg-muted/20 shrink-0">
-        <div className="p-4 border-b border-border h-14 flex items-center justify-center sm:justify-start">
+        <div className="px-4 border-b border-border h-16 flex items-center justify-center sm:justify-start shrink-0">
           <h3 className="text-sm font-semibold text-foreground hidden sm:block">Providers</h3>
           <LayoutGridIcon className="size-5 sm:hidden text-foreground opacity-80" />
         </div>
@@ -97,7 +97,6 @@ export function SharedModelSelectorContent({
       <div className="flex-1 flex flex-col min-w-0 bg-background min-h-0">
         <ModelSelectorInput
           placeholder="Search models..."
-          className="border-0 border-b border-border h-14 bg-transparent shrink-0"
         />
         <ModelSelectorList className="flex-1 min-h-0 p-3 h-full max-h-none overflow-y-auto touch-pan-y scroll-smooth">
           <ModelSelectorEmpty className="py-12">
@@ -116,8 +115,8 @@ export function SharedModelSelectorContent({
               )}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 pb-4">
                 {groupedModels[provider].map((m) => {
-                  const premium = isPremium(m.id);
-                  const disabledByPlan = premium && !isPro;
+                  const proModel = isProModel(m.id);
+                  const disabledByPlan = !isPro && proModel;
                   const isSelected = selectedModelId === m.id;
 
                   return (
@@ -149,7 +148,7 @@ export function SharedModelSelectorContent({
                           <ModelSelectorName className="text-[15px] font-semibold truncate text-foreground">
                             {m.name}
                           </ModelSelectorName>
-                          {premium && (
+                          {proModel && (
                             <PremiumModelBadge className="shrink-0 scale-90 origin-left" />
                           )}
                         </div>

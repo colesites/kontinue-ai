@@ -29,13 +29,13 @@ export const ZAI_MODELS: ModelOption[] = [
     id: "zai/glm-4.6v-flash",
     name: "GLM 4.6V Flash",
     provider: "zai",
-    description: "Image capable",
+    description: "Fast responses",
   },
   {
     id: "zai/glm-4.6v",
     name: "GLM 4.6V",
     provider: "zai",
-    description: "Image capable",
+    description: "Fast responses",
   },
   {
     id: "zai/glm-4.5-air",
@@ -53,6 +53,6 @@ export const ZAI_MODELS: ModelOption[] = [
     id: "zai/glm-4.5v",
     name: "GLM 4.5V",
     provider: "zai",
-    description: "Image capable",
+    description: "Fast responses",
   },
 ];

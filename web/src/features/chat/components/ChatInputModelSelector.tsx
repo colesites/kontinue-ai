@@ -9,10 +9,8 @@ import { SharedModelSelectorContent } from "../../../components/ai-elements/shar
 import { PremiumModelBadge } from "../../../components/ai-elements/premium-model-badge";
 import { ModelCapabilityIcons } from "../../../components/ai-elements/model-capability-icons";
 import { PromptInputButton } from "../../../components/ai-elements/prompt-input";
-import { CheckIcon } from "lucide-react";
 import { AVAILABLE_MODELS } from "../../../lib/models";
 import { useModelCapabilities } from "../../../lib/use-model-capabilities";
-import { useIsProPlan } from "../../../lib/use-plan-tier";
 
 type ChatInputModelSelectorProps = {
   model: string;
@@ -27,8 +25,7 @@ export function ChatInputModelSelector({
   open,
   onOpenChange,
 }: ChatInputModelSelectorProps) {
-  const { getCapabilities, isPremium } = useModelCapabilities();
-  const isPro = useIsProPlan();
+  const { getCapabilities, isProModel } = useModelCapabilities();
 
   const selectedModelData = AVAILABLE_MODELS.find((m) => m.id === model);
 
@@ -40,7 +37,7 @@ export function ChatInputModelSelector({
             <>
               <ModelSelectorLogo provider={selectedModelData.provider} />
               <ModelSelectorName>{selectedModelData.name}</ModelSelectorName>
-              {isPremium(selectedModelData.id) && (
+              {isProModel(selectedModelData.id) && (
                 <PremiumModelBadge className="ml-1" />
               )}
               <ModelCapabilityIcons
