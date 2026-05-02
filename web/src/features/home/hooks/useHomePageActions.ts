@@ -1,12 +1,16 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@convex/_generated/api";
 import { detectProvider } from "../../../utils/url-safety";
 import { getDefaultModelForPlan, getModelById } from "../../../lib/models";
+import {
+  readCachedDefaultModel,
+  writeCachedDefaultModel,
+} from "../../../lib/default-model-storage";
 import { savePendingChatDraft } from "../../../lib/pending-chat-draft";
 import { MODEL_PROVIDER_MAP } from "../lib/model-provider-map";
 import { useIsProPlan } from "../../../lib/use-plan-tier";
@@ -25,6 +29,9 @@ export function useHomePageActions() {
   );
 
   const [localSelectedModel, setLocalSelectedModel] = useState<string | null>(null);
+  const [cachedSelectedModel, setCachedSelectedModel] = useState<string | null>(
+    () => readCachedDefaultModel(),
+  );
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [imageAspectRatio, setImageAspectRatio] = useState("auto");
   const [imageSize, setImageSize] = useState<string | null>(null);
@@ -38,13 +45,24 @@ export function useHomePageActions() {
     persistedDefaultModel && getModelById(persistedDefaultModel)
       ? persistedDefaultModel
       : null;
+  useEffect(() => {
+    if (!validatedPersistedModel) return;
+    setCachedSelectedModel(validatedPersistedModel);
+    writeCachedDefaultModel(validatedPersistedModel);
+  }, [validatedPersistedModel]);
+
   const selectedModel =
-    localSelectedModel ?? validatedPersistedModel ?? fallbackModel;
+    localSelectedModel ??
+    validatedPersistedModel ??
+    cachedSelectedModel ??
+    fallbackModel;
 
   const setSelectedModel = useCallback(
     (modelId: string) => {
       if (!getModelById(modelId)) return;
       setLocalSelectedModel(modelId);
+      setCachedSelectedModel(modelId);
+      writeCachedDefaultModel(modelId);
       void saveDefaultModel({ modelId }).catch((error) => {
         console.error("Failed to persist selected model:", error);
       });

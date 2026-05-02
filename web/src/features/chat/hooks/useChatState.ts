@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
@@ -8,6 +8,10 @@ import {
   getDefaultModelForPlan,
   getModelById,
 } from "../../../lib/models";
+import {
+  readCachedDefaultModel,
+  writeCachedDefaultModel,
+} from "../../../lib/default-model-storage";
 import { useModelCapabilities } from "../../../lib/use-model-capabilities";
 import { consumePendingChatDraft } from "../../../lib/pending-chat-draft";
 
@@ -20,6 +24,9 @@ export function useChatState({ chatId }: { chatId: Id<"chats"> }) {
   const [localSelectedModel, setLocalSelectedModel] = useState<string | null>(
     null,
   );
+  const [cachedSelectedModel, setCachedSelectedModel] = useState<string | null>(
+    () => readCachedDefaultModel(),
+  );
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [imageAspectRatio, setImageAspectRatio] = useState<string>("auto");
   const [imageSize, setImageSize] = useState<string | null>(null);
@@ -30,9 +37,17 @@ export function useChatState({ chatId }: { chatId: Id<"chats"> }) {
       ? persistedDefaultModel
       : null;
 
+  useEffect(() => {
+    if (!validatedPersistedModel) return;
+    setCachedSelectedModel(validatedPersistedModel);
+    writeCachedDefaultModel(validatedPersistedModel);
+  }, [validatedPersistedModel]);
+
   const setUserSelectedModel = useCallback(
     (modelId: string | null) => {
       setLocalSelectedModel(modelId);
+      setCachedSelectedModel(modelId);
+      writeCachedDefaultModel(modelId);
       if (!modelId || !getModelById(modelId)) return;
 
       void saveDefaultModel({ modelId }).catch((error) => {
@@ -46,8 +61,9 @@ export function useChatState({ chatId }: { chatId: Id<"chats"> }) {
     () =>
       localSelectedModel ??
       validatedPersistedModel ??
+      cachedSelectedModel ??
       getDefaultModelForPlan(isPaidPlan).id,
-    [localSelectedModel, validatedPersistedModel, isPaidPlan],
+    [localSelectedModel, validatedPersistedModel, cachedSelectedModel, isPaidPlan],
   );
 
   const modelOptionsByProvider = useMemo(() => {
@@ -104,7 +120,8 @@ export function useChatState({ chatId }: { chatId: Id<"chats"> }) {
 
   return {
     selectedModel,
-    userSelectedModel: localSelectedModel ?? validatedPersistedModel,
+    userSelectedModel:
+      localSelectedModel ?? validatedPersistedModel ?? cachedSelectedModel,
     setUserSelectedModel,
     webSearchEnabled: isPaidPlan ? webSearchEnabled : false,
     setWebSearchEnabled,
