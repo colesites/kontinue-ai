@@ -7,6 +7,7 @@ import { HiSpeakerWave } from "react-icons/hi2";
 import { cn } from "../../../utils/cn";
 import { useCopyToClipboard } from "../../../hooks/use-copy-to-clipboard";
 import { useTextToSpeech } from "../hooks/use-text-to-speech";
+import {
   ModelSelector,
   ModelSelectorContent,
   ModelSelectorTrigger,
