@@ -5,9 +5,11 @@ import {
   Platform,
   Pressable,
   TextInput,
-  useColorScheme,
-  View
+  View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useThemePalette } from "@/providers/ThemeProvider";
 
 interface PromptInputProps {
   onSend: (content: string) => void;
@@ -21,8 +23,9 @@ export const PromptInput = ({
   placeholder = "Ask me anything...",
 }: PromptInputProps) => {
   const [text, setText] = useState("");
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const insets = useSafeAreaInsets();
+  const { palette } = useThemePalette();
+  const mutedColor = `rgb(${palette.mutedForeground})`;
 
   const handleSend = () => {
     if (text.trim() && !disabled) {
@@ -34,60 +37,60 @@ export const PromptInput = ({
 
   return (
     <View
-      className="flex-row items-end gap-2 px-4 py-2 bg-background border-t border-border"
-      style={{ paddingBottom: Platform.OS === "ios" ? 24 : 12 }}
+      className="border-t border-border/40 bg-background/95 px-4 pt-3"
+      style={{ paddingBottom: Platform.OS === "ios" ? Math.max(insets.bottom, 12) : 14 }}
     >
-      <View className="flex-1 flex-row items-end bg-muted rounded-3xl px-4 py-2 border border-border/50">
+      <View className="flex-row items-end gap-2 rounded-[28px] border border-border/50 bg-card/96 px-3 py-3">
+        {!text.length && (
+          <View className="flex-row gap-2 pb-1">
+            <Pressable
+              className="h-10 w-10 items-center justify-center rounded-full bg-secondary/35"
+              onPress={() =>
+                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+              }
+            >
+              <Feather name="mic" size={18} color={mutedColor} />
+            </Pressable>
+            <Pressable
+              className="h-10 w-10 items-center justify-center rounded-full bg-secondary/35"
+              onPress={() =>
+                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+              }
+            >
+              <Feather name="plus" size={18} color={mutedColor} />
+            </Pressable>
+          </View>
+        )}
+
         <TextInput
-          className="flex-1 text-base text-foreground max-h-32"
+          className="max-h-32 flex-1 px-1 text-base text-foreground"
           multiline
           placeholder={placeholder}
-          placeholderTextColor={isDark ? "#9ca3af" : "#6b7280"}
+          placeholderTextColor={mutedColor}
           value={text}
           onChangeText={setText}
           editable={!disabled}
           style={{ paddingVertical: 8 }}
         />
 
-        {text.length > 0 && (
-          <Pressable
-            onPress={handleSend}
-            disabled={disabled}
-            className={`p-2 rounded-full ${isDark ? "bg-primary" : "bg-primary"} ml-2 mb-0.5`}
-          >
-            <Feather name="arrow-up" size={20} color="white" />
-          </Pressable>
-        )}
+        <Pressable
+          onPress={handleSend}
+          disabled={!text.trim() || disabled}
+          className={`mb-0.5 h-11 w-11 items-center justify-center rounded-full ${
+            text.trim() ? "bg-primary" : "bg-secondary/35"
+          }`}
+        >
+          <Feather
+            name="arrow-up"
+            size={18}
+            color={
+              text.trim()
+                ? `rgb(${palette.primaryForeground})`
+                : mutedColor
+            }
+          />
+        </Pressable>
       </View>
-
-      {!text.length && (
-        <View className="flex-row gap-1 mb-1">
-          <Pressable
-            className="p-2 rounded-full bg-muted border border-border/50"
-            onPress={() =>
-              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-            }
-          >
-            <Feather
-              name="mic"
-              size={20}
-              color={isDark ? "#9ca3af" : "#4b5563"}
-            />
-          </Pressable>
-          <Pressable
-            className="p-2 rounded-full bg-muted border border-border/50"
-            onPress={() =>
-              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-            }
-          >
-            <Feather
-              name="plus"
-              size={20}
-              color={isDark ? "#9ca3af" : "#4b5563"}
-            />
-          </Pressable>
-        </View>
-      )}
     </View>
   );
 };

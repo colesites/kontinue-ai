@@ -6,6 +6,7 @@ import {
   Bug,
   Lightbulb,
   MessageSquareText,
+  Palette,
 } from "lucide-react";
 import { type FeedbackPost } from "../types";
 
@@ -51,10 +52,12 @@ export function FeedbackPostCard({
           <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             {post.type === "feature" ? (
               <Lightbulb className="h-3.5 w-3.5" />
-            ) : (
+            ) : post.type === "bug" ? (
               <Bug className="h-3.5 w-3.5" />
+            ) : (
+              <Palette className="h-3.5 w-3.5" />
             )}
-            {post.type}
+            {post.type === "ui_ux" ? "UI/UX" : post.type}
           </p>
           <h3 className="mt-1 text-sm font-semibold sm:text-base">
             {post.title}

@@ -125,11 +125,16 @@ export default defineSchema({
     .index("by_message", ["messageId"])
     .index("by_owner_chat", ["ownerId", "chatId"]),
 
+  communityManagers: defineTable({
+    email: v.string(),
+    addedAt: v.number(),
+  }).index("by_email", ["email"]),
+
   feedbackPosts: defineTable({
     ownerId: v.id("users"),
     title: v.string(),
     details: v.string(),
-    type: v.union(v.literal("feature"), v.literal("bug")),
+    type: v.union(v.literal("feature"), v.literal("bug"), v.literal("ui_ux")),
     score: v.number(),
     commentCount: v.number(),
     createdAt: v.number(),
@@ -142,6 +147,7 @@ export default defineSchema({
   feedbackComments: defineTable({
     postId: v.id("feedbackPosts"),
     ownerId: v.id("users"),
+    parentId: v.optional(v.id("feedbackComments")),
     body: v.string(),
     createdAt: v.number(),
   })

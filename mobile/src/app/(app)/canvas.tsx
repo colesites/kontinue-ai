@@ -36,7 +36,7 @@ export default function CanvasScreen() {
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
-          contentContainerClassName="flex-grow px-4 pb-40 pt-16"
+          contentContainerClassName="flex-grow px-5 pb-40 pt-5"
           showsVerticalScrollIndicator={false}
         >
           <CanvasGallery
@@ -47,7 +47,7 @@ export default function CanvasScreen() {
           />
         </ScrollView>
 
-        <View className="absolute bottom-0 left-0 right-0 px-4 pb-8 bg-transparent">
+        <View className="absolute bottom-0 left-0 right-0 px-5 pb-6 bg-transparent">
           <CanvasInputBar
             prompt={prompt}
             onChangePrompt={setPrompt}

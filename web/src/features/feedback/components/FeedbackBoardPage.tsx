@@ -13,7 +13,7 @@ import { cn } from "../../../utils/cn";
 
 export function FeedbackBoardPage() {
   const router = useRouter();
-  const { form, isLoading, topPosts, newPosts, updateForm, createPost, votePost, addComment } =
+  const { form, isLoading, topPosts, newPosts, updateForm, createPost, votePost, addComment, editPost, deletePost } =
     useFeedbackBoard();
   const [activeTab, setActiveTab] = useState<"top" | "new">("top");
   const [selectedPost, setSelectedPost] = useState<FeedbackPost | null>(null);
@@ -65,7 +65,7 @@ export function FeedbackBoardPage() {
             Feedback Board
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-            Post feature ideas or bug reports, vote on what matters most, and
+            Post feature ideas, bug reports, or UI/UX feedback, vote on what matters most, and
             discuss with the community.
           </p>
         </section>
@@ -148,6 +148,8 @@ export function FeedbackBoardPage() {
         }}
         onVote={votePost}
         onComment={addComment}
+        onEdit={editPost}
+        onDelete={deletePost}
       />
     </main>
   );

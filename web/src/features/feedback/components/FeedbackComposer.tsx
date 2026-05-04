@@ -61,6 +61,7 @@ export function FeedbackComposer({
             <SelectContent className="rounded-xl border-border/70">
               <SelectItem value="feature">Feature Idea</SelectItem>
               <SelectItem value="bug">Bug Report</SelectItem>
+              <SelectItem value="ui_ux">UI/UX</SelectItem>
             </SelectContent>
           </Select>
           <button

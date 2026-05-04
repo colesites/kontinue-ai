@@ -33,52 +33,59 @@ export function ChatComposer({
   const iconColorMuted = `rgb(${palette.mutedForeground})`;
 
   return (
-    <Card className="p-4 rounded-[32px] border-border/40 bg-card shadow-2xl">
+    <Card className="rounded-[30px] border-border/50 bg-card/96 p-4 shadow-2xl">
       <TextInput
         multiline
         value={value}
         onChangeText={onChangeValue}
         placeholder={placeholder ?? "Ask anything..."}
         placeholderTextColor="#9ca3af"
-        className="min-h-[48px] max-h-32 text-lg text-foreground px-2 py-1 mb-2"
+        className="mb-3 min-h-[56px] max-h-32 px-2 py-2 text-[17px] text-foreground"
         textAlignVertical="top"
       />
 
       <View className="flex-row items-center justify-between">
-        <View className="flex-row items-center gap-3">
+        <View className="mr-3 flex-1 flex-row items-center gap-2">
           <Pressable
-            className="flex-row items-center gap-2 bg-secondary/30 px-3 py-1.5 rounded-full border border-border/40"
+            className="max-w-[78%] flex-row items-center gap-2 rounded-full border border-border/40 bg-secondary/40 px-3 py-2"
             onPress={() => setSelectorOpen(true)}
           >
             <Feather name="zap" size={14} color={iconColorPrimary} />
-            <Text className="text-sm font-bold text-foreground">
+            <Text
+              className="text-sm font-bold text-foreground"
+              numberOfLines={1}
+            >
               {selectedModelName}
             </Text>
           </Pressable>
 
-          <Pressable className="p-2">
+          <Pressable className="h-10 w-10 items-center justify-center rounded-full bg-secondary/30">
             <Feather name="paperclip" size={20} color={iconColorMuted} />
           </Pressable>
         </View>
 
         <View className="flex-row items-center gap-2">
-          <Pressable className="p-2">
+          <Pressable className="h-10 w-10 items-center justify-center rounded-full bg-secondary/30">
             <Feather name="mic" size={20} color={iconColorMuted} />
           </Pressable>
 
           <Pressable
             onPress={onSend}
             disabled={!value.trim() || !!isSending}
-            className={`w-10 h-10 items-center justify-center rounded-full ${
+            className={`h-11 w-11 items-center justify-center rounded-full ${
               value.trim()
-                ? "bg-secondary border border-border/50"
+                ? "border border-primary/20 bg-primary"
                 : "bg-muted/30"
             }`}
           >
             <Feather
               name="navigation"
               size={18}
-              color={value.trim() ? iconColorPrimary : iconColorMuted}
+              color={
+                value.trim()
+                  ? `rgb(${palette.primaryForeground})`
+                  : iconColorMuted
+              }
               style={{ transform: [{ rotate: "1deg" }] }}
             />
           </Pressable>

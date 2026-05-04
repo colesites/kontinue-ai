@@ -22,6 +22,8 @@ const INITIAL_FORM: FeedbackFormState = {
 export function useFeedbackBoard() {
   const posts = useQuery(api.feedback.listPosts, {});
   const createPostMutation = useMutation(api.feedback.createPost);
+  const updatePostMutation = useMutation(api.feedback.updatePost);
+  const deletePostMutation = useMutation(api.feedback.deletePost);
   const votePostMutation = useMutation(api.feedback.votePost);
   const addCommentMutation = useMutation(api.feedback.addComment);
   const [form, setForm] = useState<FeedbackFormState>(INITIAL_FORM);
@@ -74,14 +76,39 @@ export function useFeedbackBoard() {
     }
   };
 
-  const addComment = async (postId: Id<"feedbackPosts">, body: string) => {
+  const addComment = async (postId: Id<"feedbackPosts">, body: string, parentId?: Id<"feedbackComments">) => {
     const trimmed = body.trim();
     if (!trimmed) return false;
 
     try {
-      await addCommentMutation({ postId, body: trimmed });
+      await addCommentMutation({ postId, body: trimmed, parentId });
       return true;
     } catch {
+      return false;
+    }
+  };
+
+  const editPost = async (
+    postId: Id<"feedbackPosts">,
+    title: string,
+    details: string,
+    type: FeedbackPostType,
+  ) => {
+    try {
+      await updatePostMutation({ postId, title, details, type });
+      return true;
+    } catch {
+      toast.error("Could not edit post. Please sign in and try again.");
+      return false;
+    }
+  };
+
+  const deletePost = async (postId: Id<"feedbackPosts">) => {
+    try {
+      await deletePostMutation({ postId });
+      return true;
+    } catch {
+      toast.error("Could not delete post. Please sign in and try again.");
       return false;
     }
   };
@@ -95,5 +122,7 @@ export function useFeedbackBoard() {
     createPost,
     votePost,
     addComment,
+    editPost,
+    deletePost,
   };
 }

@@ -76,6 +76,19 @@ export const listPosts = query({
       .order("desc")
       .take(limit);
 
+    const identity = await ctx.auth.getUserIdentity();
+    let currentUserId: string | null = null;
+    if (identity) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkUserId", identity.subject))
+        .unique();
+      currentUserId = user?._id ?? null;
+    }
+
+    const communityManagers = await ctx.db.query("communityManagers").collect();
+    const cmEmails = new Set(communityManagers.map(cm => cm.email));
+
     return await Promise.all(
       posts.map(async (post) => {
         const comments = await ctx.db
@@ -89,10 +102,12 @@ export const listPosts = query({
             const author = await ctx.db.get(comment.ownerId);
             return {
               id: comment._id,
+              parentId: comment.parentId,
               body: comment.body,
               createdAt: comment.createdAt,
               authorName: author?.name ?? "Anonymous",
               authorImage: author?.imageUrl,
+              isCommunityManager: author ? cmEmails.has(author.email) : false,
             };
           }),
         );
@@ -105,6 +120,7 @@ export const listPosts = query({
           score: post.score,
           createdAt: post.createdAt,
           commentCount: post.commentCount,
+          isOwner: currentUserId === post.ownerId,
           comments: commentsWithAuthors,
         };
       }),
@@ -116,7 +132,7 @@ export const createPost = mutation({
   args: {
     title: v.string(),
     details: v.string(),
-    type: v.union(v.literal("feature"), v.literal("bug")),
+    type: v.union(v.literal("feature"), v.literal("bug"), v.literal("ui_ux")),
   },
   handler: async (ctx, args) => {
     const owner = await getOrCreateAuthenticatedUser(ctx);
@@ -208,6 +224,7 @@ export const votePost = mutation({
 export const addComment = mutation({
   args: {
     postId: v.id("feedbackPosts"),
+    parentId: v.optional(v.id("feedbackComments")),
     body: v.string(),
   },
   handler: async (ctx, args) => {
@@ -229,9 +246,17 @@ export const addComment = mutation({
       });
     }
 
+    if (args.parentId) {
+      const parent = await ctx.db.get(args.parentId);
+      if (!parent || parent.postId !== args.postId) {
+        throw new ConvexError({ code: "VALIDATION_ERROR", message: "Invalid parent comment." });
+      }
+    }
+
     const now = Date.now();
     const commentId = await ctx.db.insert("feedbackComments", {
       postId: post._id,
+      parentId: args.parentId,
       ownerId: owner._id,
       body,
       createdAt: now,
@@ -243,5 +268,88 @@ export const addComment = mutation({
     });
 
     return commentId;
+  },
+});
+
+export const updatePost = mutation({
+  args: {
+    postId: v.id("feedbackPosts"),
+    title: v.string(),
+    details: v.string(),
+    type: v.union(v.literal("feature"), v.literal("bug"), v.literal("ui_ux")),
+  },
+  handler: async (ctx, args) => {
+    const owner = await getOrCreateAuthenticatedUser(ctx);
+    const title = requireNonEmptyTrimmed(args.title, "Title");
+    const details = requireNonEmptyTrimmed(args.details, "Details");
+
+    if (title.length > TITLE_MAX_LENGTH) {
+      throw new ConvexError({
+        code: "VALIDATION_ERROR",
+        message: `Title must be ${TITLE_MAX_LENGTH} characters or fewer.`,
+      });
+    }
+    if (details.length > DETAILS_MAX_LENGTH) {
+      throw new ConvexError({
+        code: "VALIDATION_ERROR",
+        message: `Details must be ${DETAILS_MAX_LENGTH} characters or fewer.`,
+      });
+    }
+
+    const post = await ctx.db.get(args.postId);
+    if (!post) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Post not found." });
+    }
+
+    if (post.ownerId !== owner._id) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "You do not have permission to edit this post." });
+    }
+
+    await ctx.db.patch(args.postId, {
+      title,
+      details,
+      type: args.type,
+      updatedAt: Date.now(),
+    });
+
+    return true;
+  },
+});
+
+export const deletePost = mutation({
+  args: {
+    postId: v.id("feedbackPosts"),
+  },
+  handler: async (ctx, args) => {
+    const owner = await getOrCreateAuthenticatedUser(ctx);
+    const post = await ctx.db.get(args.postId);
+    if (!post) return false;
+
+    if (post.ownerId !== owner._id) {
+      throw new ConvexError({ code: "UNAUTHORIZED", message: "You do not have permission to delete this post." });
+    }
+
+    // Delete all comments
+    const comments = await ctx.db
+      .query("feedbackComments")
+      .withIndex("by_post_created", (q) => q.eq("postId", args.postId))
+      .collect();
+    for (const comment of comments) {
+      await ctx.db.delete(comment._id);
+    }
+
+    // Delete all votes
+    const votes = await ctx.db
+      .query("feedbackVotes")
+      .withIndex("by_post_owner", (q) => q.eq("postId", args.postId))
+      .collect();
+    for (const vote of votes) {
+      await ctx.db.delete(vote._id);
+    }
+
+    // Delete post
+    await ctx.db.delete(args.postId);
+    
+    return true;
   },
 });

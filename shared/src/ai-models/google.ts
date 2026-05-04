@@ -5,25 +5,25 @@ export const GOOGLE_MODELS: ModelOption[] = [
     id: "google/gemini-3.1-pro-preview",
     name: "Gemini 3.1 Pro Preview",
     provider: "google",
-    description: "Powerful, high-efficiency model built for advanced reasoning, and coding",
+    description: "Powerful, high-efficiency model for advanced reasoning, and coding",
   },
   {
     id: "google/gemini-3.1-flash-lite-preview",
     name: "Gemini 3.1 Flash Lite Preview",
     provider: "google",
-    description: "Fast, cost-efficient model built for high-volume workloads",
+    description: "Fast, cost-efficient model for high-volume workloads",
   },
   {
     id: "google/gemini-3.1-flash-image-preview",
     name: "Nano Banana 2",
     provider: "google",
-    description: "Fast, cost-efficient model built for image generation and understanding",
+    description: "Fast, cost-efficient model for image generation and understanding",
   },
   {
     id: "google/gemini-3-pro-preview",
     name: "Gemini 3 Pro Preview",
     provider: "google",
-    description: "High-performance model built for complex reasoning, and coding",
+    description: "High-performance model for complex reasoning, and coding",
   },
   {
     id: "google/gemini-3-flash",
@@ -35,7 +35,7 @@ export const GOOGLE_MODELS: ModelOption[] = [
     id: "google/gemini-3-pro-image",
     name: "Nano Banana Pro",
     provider: "google",
-    description: "High-quality model built for advanced image generation and editing",
+    description: "High-quality model for advanced image generation and editing",
   },
   {
     id: "google/gemini-2.5-pro",
@@ -53,6 +53,6 @@ export const GOOGLE_MODELS: ModelOption[] = [
     id: "google/gemini-2.5-flash-image",
     name: "Nano Banana",
     provider: "google",
-    description: "Fast, cost-efficient model built for image generation",
+    description: "Fast, cost-efficient model for image generation",
   },
 ];

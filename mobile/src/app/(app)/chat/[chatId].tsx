@@ -32,8 +32,11 @@ export default function ChatScreen() {
   return (
     <ScreenBackground>
       <MainHeader />
-      <View className="px-6 pb-2 pt-16">
-        <Text className="text-xl font-bold text-foreground" numberOfLines={1}>
+      <View className="border-b border-border/40 px-5 pb-4 pt-5">
+        <Text className="text-xs font-semibold uppercase tracking-[2px] text-muted-foreground">
+          Chat
+        </Text>
+        <Text className="mt-1 text-2xl font-bold text-foreground" numberOfLines={1}>
           {chat.title}
         </Text>
       </View>

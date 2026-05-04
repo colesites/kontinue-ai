@@ -20,30 +20,28 @@ export function HomeIntro({ onOpenInfo, onOpenImport }: HomeIntroProps) {
   const logoTintColor = scheme === "light" ? "#000000" : "#ffffff";
 
   return (
-    <View className="gap-8 items-center pt-4">
-      {/* Title and Greeting */}
-      <View className="items-center gap-4">
+    <View className="gap-8 pt-2">
+      <View className="gap-4">
         <Image
           key={scheme}
           source={require("../../../assets/images/kontinueai.png")}
-          className="w-32 h-10"
+          className="h-10 w-32"
           resizeMode="contain"
           style={{ tintColor: logoTintColor }}
         />
-        <Text className="text-4xl font-bold text-center text-foreground leading-[48px]">
+        <Text className="max-w-[320px] text-4xl font-bold text-foreground leading-[46px]">
           How can I help you, {userName}?
         </Text>
-        <Text className="text-base text-center text-muted-foreground px-4 leading-6">
+        <Text className="max-w-[340px] text-base leading-6 text-muted-foreground">
           Ask anything to start a new chat, or import a shared link from another
           AI app.
         </Text>
       </View>
 
-      {/* Action Links */}
-      <View className="flex-row items-center gap-6">
+      <View className="flex-row flex-wrap items-center gap-3">
         <Pressable
           onPress={onOpenInfo}
-          className="flex-row items-center gap-1 border-b border-muted-foreground/30 pb-0.5"
+          className="rounded-full border border-border/60 bg-card/60 px-4 py-2.5"
         >
           <Text className="text-sm font-medium text-foreground">
             How does this work?
@@ -51,26 +49,25 @@ export function HomeIntro({ onOpenInfo, onOpenImport }: HomeIntroProps) {
         </Pressable>
         <Pressable
           onPress={onOpenImport}
-          className="flex-row items-center gap-2 bg-secondary px-4 py-2.5 rounded-xl border border-border/50"
+          className="flex-row items-center gap-2 rounded-full border border-primary/25 bg-primary px-4 py-2.5"
         >
           <Feather
             name="arrow-up-right"
             size={16}
-            color={`rgb(${palette.foreground})`}
+            color={`rgb(${palette.primaryForeground})`}
           />
-          <Text className="text-sm font-semibold text-foreground">
+          <Text className="text-sm font-semibold text-primary-foreground">
             Import shared link
           </Text>
         </Pressable>
       </View>
 
-      {/* How it works Card */}
-      <Card className="w-full bg-secondary/30 border-border/40 p-6 rounded-3xl">
-        <Text className="text-lg font-bold text-foreground mb-6">
+      <Card className="w-full rounded-[28px] border-border/50 bg-card/80 p-6">
+        <Text className="mb-6 text-lg font-bold text-foreground">
           How it works
         </Text>
 
-        <View className="gap-6 mb-8">
+        <View className="mb-8 gap-6">
           <View className="flex-row gap-4">
             <View className="w-10 h-10 bg-background rounded-xl items-center justify-center border border-border/50">
               <Feather name="copy" size={18} color={iconColor} />
@@ -114,7 +111,6 @@ export function HomeIntro({ onOpenInfo, onOpenImport }: HomeIntroProps) {
           </View>
         </View>
 
-        {/* Provider Chips */}
         <View className="flex-row flex-wrap gap-2">
           {Object.entries(PROVIDER_CONFIG)
             .filter(([key]) => key !== "unknown")

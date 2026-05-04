@@ -37,22 +37,4 @@ export const ANTHROPIC_MODELS: ModelOption[] = [
     provider: "anthropic",
     description: "Fast, lightweight model for simple everyday tasks",
   },
-  // {
-  //   id: "anthropic/claude-opus-4.1",
-  //   name: "Claude Opus 4.1",
-  //   provider: "anthropic",
-  //   description: "Excellent reasoning",
-  // },
-  // {
-  //   id: "anthropic/claude-opus-4",
-  //   name: "Claude Opus 4",
-  //   provider: "anthropic",
-  //   description: "Advanced capabilities",
-  // },
-  // {
-  //   id: "anthropic/claude-sonnet-4",
-  //   name: "Claude Sonnet 4",
-  //   provider: "anthropic",
-  //   description: "Advanced capabilities",
-  // },
 ];

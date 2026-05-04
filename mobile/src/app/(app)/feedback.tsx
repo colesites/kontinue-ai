@@ -1,8 +1,6 @@
 import { Feather } from "@expo/vector-icons";
-import { DrawerActions } from "@react-navigation/native";
-import { useNavigationContainerRef } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, ScrollView, Text, View } from "react-native";
 
 import { FeedbackComposer } from "@/components/feedback/feedback-composer";
 import { FeedbackPostCard } from "@/components/feedback/feedback-post-card";
@@ -10,11 +8,11 @@ import { FeedbackPostModal } from "@/components/feedback/feedback-post-modal";
 import { Chip } from "@/components/ui/chip";
 import { ScreenBackground } from "@/components/ui/screen";
 import { SectionTitle } from "@/components/ui/section-title";
+import { MainHeader } from "@/components/nav/MainHeader";
 import type { FeedbackPost } from "@/features/feedback/types";
 import { useFeedbackBoard } from "@/features/feedback/use-feedback-board";
 
 export default function FeedbackScreen() {
-  const navigationRef = useNavigationContainerRef();
   const {
     title,
     setTitle,
@@ -34,21 +32,11 @@ export default function FeedbackScreen() {
 
   const activePosts = tab === "top" ? topPosts : newPosts;
 
-  const openDrawer = () => {
-    navigationRef.current?.dispatch(DrawerActions.openDrawer());
-  };
-
   return (
     <ScreenBackground>
-      <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
-        <Pressable onPress={openDrawer} className="p-2 rounded-xl bg-muted/50">
-          <Feather name="menu" size={24} color="#f472b6" />
-        </Pressable>
-        <Text className="text-xl font-bold text-foreground">Feedback</Text>
-        <View className="w-10 h-10" />
-      </View>
+      <MainHeader />
       <ScrollView
-        contentContainerClassName="gap-4 px-4 pb-28 pt-2"
+        contentContainerClassName="gap-4 px-5 pb-28 pt-5"
         keyboardShouldPersistTaps="handled"
       >
         <SectionTitle
@@ -88,7 +76,7 @@ export default function FeedbackScreen() {
         </View>
 
         {activePosts.length === 0 ? (
-          <Text className="text-sm text-slate-300">
+          <Text className="text-sm text-muted-foreground">
             No posts yet. Be the first to post feedback.
           </Text>
         ) : (

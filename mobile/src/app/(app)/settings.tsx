@@ -47,14 +47,14 @@ export default function SettingsScreen() {
       <MainHeader />
 
       <ScrollView
-        contentContainerClassName="gap-4 px-4 pb-24 pt-20"
+        contentContainerClassName="gap-5 px-5 pb-24 pt-5"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <View className="flex-row gap-3">
           <Pressable
             onPress={() => router.back()}
-            className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border/70 bg-card/70 px-3 py-3"
+            className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl border border-border/70 bg-card/80 px-3 py-3.5"
           >
             <Feather name="arrow-left" size={16} color={iconColor} />
             <Text className="text-sm font-semibold text-foreground">Back to Chat</Text>
@@ -62,7 +62,7 @@ export default function SettingsScreen() {
 
           <Pressable
             onPress={() => void signOut()}
-            className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border/70 bg-card/70 px-3 py-3"
+            className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl border border-border/70 bg-card/80 px-3 py-3.5"
           >
             <Feather name="log-out" size={16} color={iconColor} />
             <Text className="text-sm font-semibold text-foreground">Sign out</Text>
@@ -75,7 +75,7 @@ export default function SettingsScreen() {
           planTier={settings.planTier}
         />
 
-        <Card className="gap-2 rounded-2xl border-border/70 bg-card/70">
+        <Card className="gap-2 rounded-3xl border-border/70 bg-card/80 p-5">
           <Text className="text-base font-semibold text-foreground">Current plan</Text>
           <Text className="text-sm text-muted-foreground">{planDescription}</Text>
           {settings.planTier !== "pro" ? (
@@ -92,7 +92,7 @@ export default function SettingsScreen() {
           )}
         </Card>
 
-        <Card className="gap-5 rounded-3xl border-border/70 bg-card/70 p-5">
+        <Card className="gap-5 rounded-[28px] border-border/70 bg-card/80 p-5">
           <View className="self-start rounded-xl border border-border/70 bg-background/60 p-1">
             <View className="flex-row">
               <Pressable

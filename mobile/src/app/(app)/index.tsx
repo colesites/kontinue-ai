@@ -59,7 +59,7 @@ export default function HomeScreen() {
       >
         <ScrollView
           className="flex-1"
-          contentContainerClassName="gap-6 px-6 pb-32 pt-16"
+          contentContainerClassName="gap-6 px-5 pb-32 pt-8"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -69,7 +69,7 @@ export default function HomeScreen() {
           />
         </ScrollView>
 
-        <View className="absolute bottom-0 left-0 right-0 px-6 pb-8 bg-transparent">
+        <View className="absolute bottom-0 left-0 right-0 px-5 pb-6 bg-transparent">
           <ChatComposer
             value={prompt}
             onChangeValue={setPrompt}

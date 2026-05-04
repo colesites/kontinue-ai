@@ -1,6 +1,7 @@
 import React from "react";
-import { StyleSheet, useColorScheme, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import Markdown from "react-native-markdown-display";
+import { useThemePalette } from "@/providers/ThemeProvider";
 
 interface MessageContentProps {
   content: string;
@@ -9,42 +10,41 @@ interface MessageContentProps {
 
 export const MessageContent = React.memo(
   ({ content, isStreaming }: MessageContentProps) => {
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === "dark";
+    const { palette } = useThemePalette();
 
     const styles = StyleSheet.create({
       body: {
-        color: isDark ? "#ececec" : "#374151",
+        color: `rgb(${palette.foreground})`,
         fontSize: 16,
         lineHeight: 24,
       },
       code_inline: {
-        backgroundColor: isDark ? "#2d2d2d" : "#f3f4f6",
-        color: isDark ? "#f87171" : "#dc2626",
+        backgroundColor: `rgba(${palette.secondary}, 0.7)`,
+        color: `rgb(${palette.primary})`,
         borderRadius: 4,
         paddingHorizontal: 4,
-        fontFamily: "System", // Or a monospace font if available
+        fontFamily: "System",
       },
       code_block: {
-        backgroundColor: isDark ? "#1a1a1a" : "#f9fafb",
-        color: isDark ? "#d1d5db" : "#1f2937",
+        backgroundColor: `rgba(${palette.secondary}, 0.55)`,
+        color: `rgb(${palette.foreground})`,
         borderRadius: 8,
         padding: 12,
         marginVertical: 8,
         borderWidth: 1,
-        borderColor: isDark ? "#374151" : "#e5e7eb",
+        borderColor: `rgba(${palette.border}, 0.8)`,
         fontFamily: "System",
       },
       fence: {
-        backgroundColor: isDark ? "#1a1a1a" : "#f9fafb",
+        backgroundColor: `rgba(${palette.secondary}, 0.55)`,
         borderRadius: 8,
         padding: 12,
         marginVertical: 8,
         borderWidth: 1,
-        borderColor: isDark ? "#374151" : "#e5e7eb",
+        borderColor: `rgba(${palette.border}, 0.8)`,
       },
       link: {
-        color: "#f472b6", // primary color
+        color: `rgb(${palette.primary})`,
         textDecorationLine: "underline",
       },
       paragraph: {
@@ -54,19 +54,19 @@ export const MessageContent = React.memo(
       heading1: {
         fontSize: 24,
         fontWeight: "bold",
-        color: isDark ? "#ffffff" : "#111827",
+        color: `rgb(${palette.foreground})`,
         marginVertical: 12,
       },
       heading2: {
         fontSize: 20,
         fontWeight: "bold",
-        color: isDark ? "#ffffff" : "#111827",
+        color: `rgb(${palette.foreground})`,
         marginVertical: 10,
       },
       blockquote: {
-        backgroundColor: isDark ? "#2d2d2d" : "#f3f4f6",
+        backgroundColor: `rgba(${palette.secondary}, 0.5)`,
         borderLeftWidth: 4,
-        borderLeftColor: "#f472b6",
+        borderLeftColor: `rgb(${palette.primary})`,
         paddingLeft: 12,
         paddingVertical: 8,
         marginVertical: 8,
